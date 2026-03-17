@@ -34,51 +34,45 @@ const db = getFirestore(app);
 
 let unsubscribe = null;
 
-/* 🌸 PETALS */
-function spawnPetals() {
-  const container = document.getElementById("petals");
-  if (!container) return;
+/* PETALS */
+function spawnPetals(){
+  const c = document.getElementById("petals");
+  if(!c) return;
 
-  const symbols = ["🌸","💗","🩷"];
-
-  for (let i = 0; i < 15; i++) {
-    const el = document.createElement("span");
-    el.className = "petal";
-    el.textContent = symbols[Math.floor(Math.random()*symbols.length)];
-    el.style.left = Math.random()*100+"%";
-    el.style.animationDuration = (6+Math.random()*10)+"s";
-    el.style.animationDelay = Math.random()*10+"s";
-    container.appendChild(el);
+  const arr = ["🌸","💗","🩷"];
+  for(let i=0;i<15;i++){
+    const e = document.createElement("span");
+    e.className="petal";
+    e.textContent=arr[Math.floor(Math.random()*arr.length)];
+    e.style.left=Math.random()*100+"%";
+    e.style.animationDuration=(6+Math.random()*10)+"s";
+    c.appendChild(e);
   }
 }
 spawnPetals();
 
 /* AUTH STATE */
-onAuthStateChanged(auth, user => {
+onAuthStateChanged(auth,user=>{
   if(user){
     show("diary-screen");
 
-    const name = localStorage.getItem("name");
+    const name = localStorage.getItem("diaryName");
     document.getElementById("user-badge").innerText = name || user.email;
 
     loadEntries();
   }else{
-    if(unsubscribe){
-      unsubscribe();
-      unsubscribe = null;
-    }
     show("auth-screen");
   }
 });
 
 /* LOGIN */
 window.handleAuth = async function(){
-  const name = document.getElementById("auth-name").value;
+  const name = document.getElementById("auth-name").value.trim();
   const email = document.getElementById("auth-email").value;
   const pass = document.getElementById("auth-password").value;
 
   const finalName = name || "You 💖";
-  localStorage.setItem("name", finalName);
+  localStorage.setItem("diaryName", finalName);
 
   try{
     await signInWithEmailAndPassword(auth,email,pass);
@@ -89,10 +83,7 @@ window.handleAuth = async function(){
 
 /* LOGOUT */
 window.handleLogout = async function(){
-  if(unsubscribe){
-    unsubscribe();
-    unsubscribe = null;
-  }
+  if(unsubscribe) unsubscribe();
   await signOut(auth);
 };
 
@@ -103,12 +94,12 @@ window.saveEntry = async function(){
 
   await addDoc(collection(db,"entries"),{
     text,
-    name: localStorage.getItem("name"),
+    name: localStorage.getItem("diaryName"),
     email: auth.currentUser.email,
     createdAt: serverTimestamp()
   });
 
-  document.getElementById("entry-text").value = "";
+  document.getElementById("entry-text").value="";
 };
 
 /* LOAD */
@@ -117,17 +108,17 @@ function loadEntries(){
 
   const q = query(collection(db,"entries"), orderBy("createdAt","desc"));
 
-  unsubscribe = onSnapshot(q, snapshot => {
-    container.innerHTML = "";
+  unsubscribe = onSnapshot(q,snap=>{
+    container.innerHTML="";
 
-    snapshot.forEach(docSnap => {
+    snap.forEach(docSnap=>{
       const data = docSnap.data();
       const id = docSnap.id;
 
       const isMine = data.email === auth.currentUser.email;
 
       const div = document.createElement("div");
-      div.className = "entry-card";
+      div.className="entry-card";
 
       div.innerHTML = `
         <b>${data.name || data.email}</b><br>
@@ -148,6 +139,6 @@ window.deleteEntry = async function(id){
 
 /* UI */
 function show(id){
-  document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
+  document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));
   document.getElementById(id).classList.add("active");
 }
