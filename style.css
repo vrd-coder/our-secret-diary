@@ -1,5 +1,3 @@
-/* 💖 FINAL STYLE */
-
 *{
   margin:0;
   padding:0;
@@ -13,12 +11,11 @@ body{
   overflow-x:hidden;
 }
 
-/* 🌸 PETALS */
+/* PETALS */
 .petals{
   position:fixed;
   inset:0;
   pointer-events:none;
-  z-index:0;
 }
 
 .petal{
@@ -38,8 +35,6 @@ body{
 /* SCREEN */
 .screen{
   display:none;
-  position:relative;
-  z-index:1;
   padding:20px;
 }
 
@@ -57,10 +52,8 @@ body{
   width:100%;
   max-width:350px;
   text-align:center;
-  box-shadow:0 10px 30px rgba(0,0,0,0.15);
 }
 
-/* INPUT */
 input, textarea{
   width:100%;
   padding:12px;
@@ -68,24 +61,15 @@ input, textarea{
   border-radius:12px;
   border:none;
   background:#ffe6f0;
-  outline:none;
 }
 
-/* BUTTON */
 button{
   padding:10px 20px;
   border:none;
   border-radius:20px;
-  background:linear-gradient(45deg,#ff4fa3,#e91e63);
+  background:#e91e63;
   color:white;
   cursor:pointer;
-}
-
-/* TOP */
-.top{
-  display:flex;
-  justify-content:space-between;
-  margin-bottom:15px;
 }
 
 /* DIARY */
@@ -96,17 +80,17 @@ button{
   margin:auto;
 }
 
-#entry-text{
-  min-height:120px;
+.top{
+  display:flex;
+  justify-content:space-between;
+  margin-bottom:15px;
 }
 
-/* ENTRY */
 .entry-card{
   background:white;
-  border-radius:15px;
   padding:15px;
   margin:10px 0;
-  box-shadow:0 5px 15px rgba(0,0,0,0.1);
+  border-radius:15px;
 }
 
 /* DELETE */
