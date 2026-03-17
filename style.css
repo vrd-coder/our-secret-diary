@@ -8,7 +8,6 @@
 body{
   background: linear-gradient(135deg,#fff0f5,#fde8f0,#fce4ec);
   min-height:100vh;
-  overflow-x:hidden;
 }
 
 /* 🌸 PETALS */
@@ -71,13 +70,11 @@ button{
   border-radius:20px;
   background:#e91e63;
   color:white;
-  cursor:pointer;
 }
 
 /* DIARY */
 #diary-screen{
   flex-direction:column;
-  align-items:stretch;
   max-width:600px;
   margin:auto;
 }
@@ -88,7 +85,6 @@ button{
   margin-bottom:15px;
 }
 
-/* ENTRY */
 .entry-card{
   background:white;
   padding:15px;
@@ -104,10 +100,3 @@ button{
   font-size:12px;
   border-radius:10px;
 }
-
-/* LOADING */
-#loading-text{
-  text-align:center;
-  color:#e91e63;
-  margin-top:10px;
-  }
