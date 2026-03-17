@@ -1,20 +1,5 @@
-/* ============================================
-   Our Secret Diary 💖 FINAL STYLE
-   ============================================ */
+/* 💖 FINAL STYLE */
 
-:root {
-  --pink-deep:     #e8789a;
-  --pink-mid:      #f4a0b8;
-  --pink-soft:     #fce4ec;
-  --pink-pale:     #fff0f5;
-  --rose:          #c2445e;
-  --text-dark:     #3d2030;
-  --text-light:    #b07090;
-  --white:         #ffffff;
-  --shadow:        0 10px 30px rgba(220, 100, 140, 0.2);
-}
-
-/* RESET */
 *{
   margin:0;
   padding:0;
@@ -22,11 +7,9 @@
   font-family:'Nunito', sans-serif;
 }
 
-/* BODY */
 body{
   background: linear-gradient(135deg,#fff0f5,#fde8f0,#fce4ec);
   min-height:100vh;
-  color:var(--text-dark);
   overflow-x:hidden;
 }
 
@@ -47,7 +30,7 @@ body{
 }
 
 @keyframes fall{
-  0%{transform:translateY(0) rotate(0);opacity:0;}
+  0%{transform:translateY(0);opacity:0;}
   10%{opacity:0.6;}
   100%{transform:translateY(110vh) rotate(360deg);opacity:0;}
 }
@@ -74,12 +57,7 @@ body{
   width:100%;
   max-width:350px;
   text-align:center;
-  box-shadow:var(--shadow);
-}
-
-.auth-box h1{
-  color:var(--rose);
-  margin-bottom:15px;
+  box-shadow:0 10px 30px rgba(0,0,0,0.15);
 }
 
 /* INPUT */
@@ -89,7 +67,7 @@ input, textarea{
   margin:10px 0;
   border-radius:12px;
   border:none;
-  background:var(--pink-pale);
+  background:#ffe6f0;
   outline:none;
 }
 
@@ -100,25 +78,17 @@ button{
   border-radius:20px;
   background:linear-gradient(45deg,#ff4fa3,#e91e63);
   color:white;
-  font-weight:600;
   cursor:pointer;
-  transition:0.2s;
 }
 
-button:hover{
-  transform:translateY(-2px);
-}
-
-/* TOP BAR */
+/* TOP */
 .top{
   display:flex;
   justify-content:space-between;
-  align-items:center;
   margin-bottom:15px;
-  font-weight:600;
 }
 
-/* DIARY SCREEN FIX */
+/* DIARY */
 #diary-screen{
   flex-direction:column;
   align-items:stretch;
@@ -126,45 +96,24 @@ button:hover{
   margin:auto;
 }
 
-/* TEXTAREA */
 #entry-text{
   min-height:120px;
 }
 
-/* ENTRY CARD */
+/* ENTRY */
 .entry-card{
   background:white;
   border-radius:15px;
   padding:15px;
   margin:10px 0;
-  box-shadow:var(--shadow);
-  animation:fadeIn 0.3s ease;
+  box-shadow:0 5px 15px rgba(0,0,0,0.1);
 }
 
-@keyframes fadeIn{
-  from{opacity:0;transform:translateY(10px);}
-  to{opacity:1;transform:translateY(0);}
-}
-
-/* DELETE BUTTON */
+/* DELETE */
 .delete-btn{
   margin-top:10px;
-  background:linear-gradient(135deg,#ff6b81,#ff4d6d);
-  color:white;
-  border:none;
-  border-radius:10px;
-  padding:6px 12px;
+  background:#ff4d6d;
+  padding:6px 10px;
   font-size:12px;
-  cursor:pointer;
-}
-
-.delete-btn:hover{
-  transform:scale(1.05);
-}
-
-/* RESPONSIVE */
-@media(max-width:500px){
-  .auth-box{
-    margin-top:50px;
-  }
+  border-radius:10px;
 }
