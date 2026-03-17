@@ -9,10 +9,9 @@
   <link rel="stylesheet" href="style.css"/>
 </head>
 <body>
-
   <div class="petals" id="petals"></div>
 
-  <!-- AUTH SCREEN -->
+  <!-- AUTH -->
   <div id="auth-screen" class="screen active">
     <div class="auth-wrapper">
       <div class="auth-card">
@@ -26,22 +25,19 @@
         <div id="auth-info"  class="auth-info"  style="display:none"></div>
         <div class="input-group">
           <label>Your Name</label>
-          <div class="input-wrap">
-            <span class="input-icon">👤</span>
+          <div class="input-wrap"><span class="input-icon">👤</span>
             <input type="text" id="auth-name" placeholder="e.g. Arjun" autocomplete="name"/>
           </div>
         </div>
         <div class="input-group">
           <label>Email</label>
-          <div class="input-wrap">
-            <span class="input-icon">✉️</span>
+          <div class="input-wrap"><span class="input-icon">✉️</span>
             <input type="email" id="auth-email" placeholder="your@email.com" autocomplete="email"/>
           </div>
         </div>
         <div class="input-group">
           <label>Password</label>
-          <div class="input-wrap">
-            <span class="input-icon">🔒</span>
+          <div class="input-wrap"><span class="input-icon">🔒</span>
             <input type="password" id="auth-password" placeholder="Enter password" autocomplete="current-password"/>
           </div>
         </div>
@@ -54,8 +50,8 @@
     </div>
   </div>
 
-  <!-- DIARY SCREEN -->
-  <div id="diary-screen" class="screen">
+  <!-- DIARY -->
+  <div id="diary-screen" class="screen" style="display:none">
     <header class="top-bar">
       <div class="top-bar-left">
         <span class="top-bar-heart">💖</span>
@@ -63,7 +59,7 @@
       </div>
       <div class="top-bar-right">
         <span class="user-badge" id="user-badge">...</span>
-        <div class="love-meter">🔥 <span id="streak-count">0</span></div>
+        <div class="love-meter">🔥<span id="streak-count">0</span></div>
         <button class="btn-ping" onclick="window.sendPing()">💗 Ping</button>
         <button class="btn-icon" onclick="window.toggleSettings()">⚙️</button>
         <button class="btn-icon" id="dark-toggle" onclick="window.toggleDark()">🌙</button>
@@ -71,11 +67,10 @@
       </div>
     </header>
 
-    <!-- Settings -->
     <div class="settings-panel" id="settings-panel" style="display:none">
       <div class="settings-inner">
         <div class="settings-group">
-          <label class="settings-label">Theme</label>
+          <span class="settings-label">Theme</span>
           <div class="theme-swatches">
             <button class="swatch active" data-theme="pink"   style="background:#e8789a" onclick="window.setTheme('pink')"></button>
             <button class="swatch"        data-theme="purple" style="background:#9b72cf" onclick="window.setTheme('purple')"></button>
@@ -85,7 +80,7 @@
           </div>
         </div>
         <div class="settings-group">
-          <label class="settings-label">Font Size</label>
+          <span class="settings-label">Font Size</span>
           <div class="font-controls">
             <button class="btn-font" onclick="window.changeFontSize(-1)">A−</button>
             <span id="font-size-label">Medium</span>
@@ -93,17 +88,16 @@
           </div>
         </div>
         <div class="settings-group">
-          <label class="settings-label">Notifications</label>
+          <span class="settings-label">Notifications</span>
           <button class="btn-notify" id="notify-btn" onclick="window.requestNotifications()">🔔 Enable</button>
         </div>
       </div>
     </div>
 
-    <!-- Toolbar -->
     <div class="toolbar">
       <div class="search-wrap">
         <span class="search-icon">🔍</span>
-        <input type="text" id="search-input" class="search-input" placeholder="Search…" oninput="window.filterEntries()"/>
+        <input type="text" id="search-input" class="search-input" placeholder="Search entries…" oninput="window.filterEntries()"/>
       </div>
       <div class="filter-wrap">
         <button class="filter-btn active" onclick="window.setFilter('all',this)">All</button>
@@ -114,7 +108,6 @@
       <button class="btn-icon" onclick="window.toggleCalendar()">📅</button>
     </div>
 
-    <!-- Calendar -->
     <div class="calendar-panel" id="calendar-panel" style="display:none">
       <div class="calendar-header">
         <button class="cal-nav" onclick="window.calPrev()">‹</button>
@@ -166,7 +159,7 @@
           <div class="live-badge">● Live</div>
         </div>
         <div id="entries-container" class="entries-container">
-          <div class="loading-state" id="loading-state">
+          <div id="loading-state" class="loading-state">
             <div class="loading-heart">💗</div>
             <p>Loading your diary…</p>
           </div>
@@ -175,13 +168,12 @@
     </main>
 
     <footer class="site-footer">
-      Made with 💖 by
-      <a href="https://www.instagram.com/bettercallvrd?igsh=MWI0dm0xcDI4ZzVueA==" target="_blank" rel="noopener" class="footer-link">@bettercallvrd</a>
+      Made with 💖 by <a href="https://www.instagram.com/bettercallvrd?igsh=MWI0dm0xcDI4ZzVueA==" target="_blank" rel="noopener" class="footer-link">@bettercallvrd</a>
     </footer>
   </div>
 
   <!-- BLOCKED -->
-  <div id="blocked-screen" class="screen">
+  <div id="blocked-screen" class="screen" style="display:none">
     <div class="blocked-container">
       <div class="blocked-icon">🔒</div>
       <h2>Private Diary</h2>
@@ -191,12 +183,11 @@
   </div>
 
   <div id="toast" class="toast" style="display:none"></div>
-  <div id="ping-overlay" class="ping-overlay" style="display:none" onclick="document.getElementById('ping-overlay').style.display='none'">
+  <div id="ping-overlay" class="ping-overlay" style="display:none" onclick="this.style.display='none'">
     <div class="ping-bubble">💗</div>
     <p class="ping-text" id="ping-text"></p>
   </div>
 
   <script type="module" src="app.js"></script>
 </body>
-  </html>
-  
+</html>
