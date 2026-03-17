@@ -51,7 +51,7 @@ function spawnPetals(){
 }
 spawnPetals();
 
-/* AUTH STATE */
+/* 🔐 AUTH STATE */
 onAuthStateChanged(auth,user=>{
   if(user){
     show("diary-screen");
@@ -65,29 +65,42 @@ onAuthStateChanged(auth,user=>{
   }
 });
 
-/* LOGIN */
+/* 🔥 LOGIN FIXED */
 window.handleAuth = async function(){
   const name = document.getElementById("auth-name").value.trim();
   const email = document.getElementById("auth-email").value;
   const pass = document.getElementById("auth-password").value;
+
+  if(!email || !pass){
+    alert("Email aur password daal 😭");
+    return;
+  }
 
   const finalName = name || "You 💖";
   localStorage.setItem("diaryName", finalName);
 
   try{
     await signInWithEmailAndPassword(auth,email,pass);
-  }catch{
-    await createUserWithEmailAndPassword(auth,email,pass);
+    alert("Login success 💖");
+  }catch(err){
+    console.log(err);
+
+    try{
+      await createUserWithEmailAndPassword(auth,email,pass);
+      alert("Account create ho gaya 💖");
+    }catch(e){
+      alert("Error: " + e.message);
+    }
   }
 };
 
-/* LOGOUT */
+/* 🚪 LOGOUT */
 window.handleLogout = async function(){
   if(unsubscribe) unsubscribe();
   await signOut(auth);
 };
 
-/* SAVE */
+/* 💾 SAVE ENTRY */
 window.saveEntry = async function(){
   const text = document.getElementById("entry-text").value.trim();
   if(!text) return;
@@ -102,7 +115,7 @@ window.saveEntry = async function(){
   document.getElementById("entry-text").value="";
 };
 
-/* LOAD */
+/* 📡 LOAD ENTRIES */
 function loadEntries(){
   const container = document.getElementById("entries-container");
 
@@ -132,7 +145,7 @@ function loadEntries(){
   });
 }
 
-/* DELETE */
+/* 🗑 DELETE */
 window.deleteEntry = async function(id){
   await deleteDoc(doc(db,"entries",id));
 };
@@ -141,4 +154,4 @@ window.deleteEntry = async function(id){
 function show(id){
   document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));
   document.getElementById(id).classList.add("active");
-}     }
+      }
