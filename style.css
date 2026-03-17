@@ -11,7 +11,7 @@ body{
   overflow-x:hidden;
 }
 
-/* PETALS */
+/* 🌸 PETALS */
 .petals{
   position:fixed;
   inset:0;
@@ -54,6 +54,7 @@ body{
   text-align:center;
 }
 
+/* INPUT */
 input, textarea{
   width:100%;
   padding:12px;
@@ -63,6 +64,7 @@ input, textarea{
   background:#ffe6f0;
 }
 
+/* BUTTON */
 button{
   padding:10px 20px;
   border:none;
@@ -86,6 +88,7 @@ button{
   margin-bottom:15px;
 }
 
+/* ENTRY */
 .entry-card{
   background:white;
   padding:15px;
@@ -101,3 +104,10 @@ button{
   font-size:12px;
   border-radius:10px;
 }
+
+/* LOADING */
+#loading-text{
+  text-align:center;
+  color:#e91e63;
+  margin-top:10px;
+  }
