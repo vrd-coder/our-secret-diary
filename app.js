@@ -66,17 +66,18 @@ const REACT_EMOJIS  = ['❤️','😂','😮','😢','🔥','👏'];
   }
 })();
 
-// ── Load saved prefs ─────────────────────────────
+// ── Load saved prefs (safe - runs before diary screen exists) ──
 (function loadPrefs(){
-  const dark  = localStorage.getItem('sd_dark') === '1';
-  const theme = localStorage.getItem('sd_theme') || 'pink';
-  const fs    = parseInt(localStorage.getItem('sd_font') || '1');
-  if(dark) document.body.classList.add('dark'), document.getElementById('dark-toggle').textContent='☀️';
-  document.documentElement.setAttribute('data-theme', theme);
-  document.querySelectorAll('.swatch').forEach(s=>s.classList.toggle('active', s.dataset.theme===theme));
-  fontSizeIdx = fs;
-  document.documentElement.style.setProperty('--font-size', FONT_SIZES[fs]);
-  document.getElementById('font-size-label').textContent = FONT_LABELS[fs];
+  try {
+    const dark  = localStorage.getItem('sd_dark') === '1';
+    const theme = localStorage.getItem('sd_theme') || 'pink';
+    const fs    = parseInt(localStorage.getItem('sd_font') || '1');
+    if(dark) document.body.classList.add('dark');
+    document.documentElement.setAttribute('data-theme', theme);
+    fontSizeIdx = fs;
+    document.documentElement.style.setProperty('--font-size', FONT_SIZES[fs]);
+    // Diary-screen elements updated later in initDiary
+  } catch(e){ /* ignore prefs errors on load */ }
 })();
 
 // ══════════════════════════════════════
@@ -105,45 +106,58 @@ onAuthStateChanged(auth, async (user) => {
 //  AUTH HANDLER
 // ══════════════════════════════════════
 window.handleAuth = async function(){
-  const name  = document.getElementById('auth-name').value.trim();
-  const email = document.getElementById('auth-email').value.trim().toLowerCase();
-  const pass  = document.getElementById('auth-password').value;
   const errEl = document.getElementById('auth-error');
   const infEl = document.getElementById('auth-info');
-  hideEl(errEl); hideEl(infEl);
 
-  if(!email||!pass){ showEl(errEl,'Please fill in email and password 💌'); return; }
-  if(pass.length<6){ showEl(errEl,'Password needs at least 6 characters'); return; }
-  setAuthLoading(true);
-
-  // Step 1: Try login
   try {
-    const cred = await signInWithEmailAndPassword(auth, email, pass);
-    if(name) await saveUserProfile(cred.user.uid, email, name);
-    return; // success
-  } catch(loginErr){
-    // Wrong password — don't try signup
-    if(loginErr.code === 'auth/wrong-password'){
-      showEl(errEl, 'Wrong password 🔐');
-      setAuthLoading(false);
-      return;
+    const name  = document.getElementById('auth-name').value.trim();
+    const email = document.getElementById('auth-email').value.trim().toLowerCase();
+    const pass  = document.getElementById('auth-password').value;
+
+    hideEl(errEl); hideEl(infEl);
+
+    if(!email)       { showEl(errEl,'Please enter your email 💌'); return; }
+    if(!pass)        { showEl(errEl,'Please enter your password 🔐'); return; }
+    if(pass.length<6){ showEl(errEl,'Password needs at least 6 characters'); return; }
+
+    setAuthLoading(true);
+    showEl(infEl, 'Signing in…');
+
+    // Step 1: Try login
+    try {
+      const cred = await signInWithEmailAndPassword(auth, email, pass);
+      if(name) await saveUserProfile(cred.user.uid, email, name);
+      return; // onAuthStateChanged handles the rest
+    } catch(loginErr){
+      hideEl(infEl);
+      // Definitely wrong password for existing account
+      if(loginErr.code === 'auth/wrong-password') {
+        showEl(errEl, 'Wrong password 🔐');
+        setAuthLoading(false);
+        return;
+      }
+      // For any other error, fall through and try signup
     }
-  }
 
-  // Step 2: Login failed — try creating account
-  try {
+    // Step 2: Try creating new account
     showEl(infEl, 'Creating your account ✨');
-    const cred = await createUserWithEmailAndPassword(auth, email, pass);
-    await saveUserProfile(cred.user.uid, email, name||email.split('@')[0]);
-    // onAuthStateChanged handles navigation
-  } catch(signupErr){
-    hideEl(infEl);
-    // If email already exists, the password was just wrong
-    if(signupErr.code === 'auth/email-already-in-use'){
-      showEl(errEl, 'Wrong password 🔐');
-    } else {
-      showEl(errEl, friendlyErr(signupErr.code));
+    try {
+      const cred = await createUserWithEmailAndPassword(auth, email, pass);
+      await saveUserProfile(cred.user.uid, email, name || email.split('@')[0]);
+      // onAuthStateChanged handles navigation automatically
+    } catch(signupErr){
+      hideEl(infEl);
+      if(signupErr.code === 'auth/email-already-in-use'){
+        showEl(errEl, 'Wrong password 🔐');
+      } else {
+        showEl(errEl, friendlyErr(signupErr.code) + ' (code: ' + signupErr.code + ')');
+      }
+      setAuthLoading(false);
     }
+
+  } catch(unexpectedErr) {
+    // Catch-all so button never gets stuck
+    showEl(errEl, 'Something went wrong: ' + (unexpectedErr.message || 'unknown error'));
     setAuthLoading(false);
   }
 };
@@ -180,6 +194,18 @@ async function initDiary(user){
   window._myName = name;
   document.getElementById('user-badge').textContent = `💌 ${name}`;
   document.getElementById('write-date').textContent = formatDateFull(new Date());
+
+  // Now safely update prefs UI (diary screen is visible)
+  try {
+    const dark = localStorage.getItem('sd_dark') === '1';
+    const theme = localStorage.getItem('sd_theme') || 'pink';
+    const fs = parseInt(localStorage.getItem('sd_font') || '1');
+    const darkBtn = document.getElementById('dark-toggle');
+    if(darkBtn) darkBtn.textContent = dark ? '☀️' : '🌙';
+    document.querySelectorAll('.swatch').forEach(s => s.classList.toggle('active', s.dataset.theme===theme));
+    const fsLabel = document.getElementById('font-size-label');
+    if(fsLabel) fsLabel.textContent = FONT_LABELS[fs];
+  } catch(e){}
 
   const textarea = document.getElementById('entry-text');
   textarea.addEventListener('input',()=>{
@@ -520,28 +546,4 @@ window.calDayClick = function(year, month, day){
   });
   container.innerHTML='';
   if(!filtered.length){ container.innerHTML=`<div class="empty-state"><span class="empty-icon">📅</span><p>No entries on this day</p></div>`; return; }
-  filtered.forEach((data,idx)=>{
-    const isMine = data.email?.toLowerCase()===u.email.toLowerCase();
-    container.appendChild(buildEntryCard(data,isMine,idx));
-  });
-  // Reset filter shows all button
-  document.getElementById('calendar-panel').classList.add('hidden');
-  showToast(`Showing ${new Date(year,month,day).toLocaleDateString('en-US',{month:'short',day:'numeric'})} 📅`);
-};
-
-// ══════════════════════════════════════
-//  LOVE METER (streak)
-// ══════════════════════════════════════
-async function updateStreak(uid){
-  const ref = doc(db,'streaks',uid);
-  const today = new Date().toDateString();
-  const snap = await getDoc(ref);
-  if(!snap.exists()){
-    await setDoc(ref,{ lastDate:today, streak:1 });
-  } else {
-    const { lastDate, streak } = snap.data();
-    const yesterday = new Date(Date.now()-86400000).toDateString();
-    if(lastDate===today) return;
-    const newStreak = lastDate===yesterday ? (streak||0)+1 : 1;
-    await setDoc(ref,{ lastDate:today, streak:newStreak });
-  }
+  filtered
