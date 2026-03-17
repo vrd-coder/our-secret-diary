@@ -15,12 +15,10 @@ import {
   query,
   orderBy,
   onSnapshot,
-  serverTimestamp,
-  where
+  serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-
-// 🔥 YOUR FIREBASE CONFIG (already set)
+// 🔥 FIREBASE CONFIG
 const firebaseConfig = {
   apiKey: "AIzaSyDxOUi53zfnq1YbfZxQbHKURfizZpsbc5A",
   authDomain: "our-secret-diary.firebaseapp.com",
@@ -30,16 +28,12 @@ const firebaseConfig = {
   appId: "1:834741276150:web:05063d4b78fefb9d7f4bd7"
 };
 
-// 🟡 Abhi empty (baad me emails daalna)
-const ALLOWED_EMAILS = [];
-
 // INIT
 const app  = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db   = getFirestore(app);
 
 setPersistence(auth, browserLocalPersistence);
-
 
 // 🌸 PETALS
 function spawnPetals() {
@@ -59,7 +53,6 @@ function spawnPetals() {
 }
 spawnPetals();
 
-
 // AUTH STATE
 let unsubscribeEntries = null;
 
@@ -68,13 +61,15 @@ onAuthStateChanged(auth, (user) => {
     showScreen("diary-screen");
     initDiary(user);
   } else {
-    if (unsubscribeEntries) unsubscribeEntries();
+    if (unsubscribeEntries) {
+      unsubscribeEntries();
+      unsubscribeEntries = null;
+    }
     showScreen("auth-screen");
   }
 });
 
-
-// LOGIN
+// LOGIN / SIGNUP
 window.handleAuth = async function () {
   const email = document.getElementById("auth-email").value.trim().toLowerCase();
   const password = document.getElementById("auth-password").value;
@@ -91,27 +86,28 @@ window.handleAuth = async function () {
   }
 };
 
-
 // LOGOUT
 window.handleLogout = async function () {
-  if (unsubscribeEntries) unsubscribeEntries();
+  if (unsubscribeEntries) {
+    unsubscribeEntries();
+    unsubscribeEntries = null;
+  }
   await signOut(auth);
 };
-
 
 // INIT DIARY
 function initDiary(user) {
   document.getElementById("user-badge").textContent = user.email;
 
   const textarea = document.getElementById("entry-text");
+
   textarea.addEventListener("input", () => {
     document.getElementById("char-count").textContent =
       textarea.value.length + " / 2000";
   });
 
-  listenEntries(user);
+  listenEntries();
 }
-
 
 // SAVE ENTRY
 window.saveEntry = async function () {
@@ -128,11 +124,11 @@ window.saveEntry = async function () {
   });
 
   textarea.value = "";
+  document.getElementById("char-count").textContent = "0 / 2000";
 };
 
-
 // REALTIME LISTENER
-function listenEntries(user) {
+function listenEntries() {
   const container = document.getElementById("entries-container");
 
   const q = query(
@@ -141,7 +137,10 @@ function listenEntries(user) {
   );
 
   unsubscribeEntries = onSnapshot(q, (snapshot) => {
-    container.innerHTML = "";
+
+    container.innerHTML = snapshot.empty
+      ? "<p style='text-align:center;color:#999;'>No entries yet 💔</p>"
+      : "";
 
     snapshot.forEach(doc => {
       const data = doc.data();
@@ -160,8 +159,7 @@ function listenEntries(user) {
   });
 }
 
-
-// UI
+// UI SWITCH
 function showScreen(id) {
   document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
   document.getElementById(id).classList.add("active");
