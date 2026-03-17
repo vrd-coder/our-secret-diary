@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="pink">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Our Secret Diary 💖</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=Nunito:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+  <div class="petals" id="petals"></div>
+
+  <!-- AUTH SCREEN -->
+  <div id="auth-screen" class="screen active">
+    <div class="auth-wrapper">
+      <div class="auth-card">
+        <div class="auth-header">
+          <div class="heart-icon">💖</div>
+          <h1 class="auth-title">Our Secret Diary</h1>
+          <p class="auth-subtitle">A private place, just for two</p>
+        </div>
+        <div class="auth-divider"></div>
+        <div id="auth-error" class="auth-error" style="display:none"></div>
+        <div id="auth-info"  class="auth-info"  style="display:none"></div>
+        <div class="input-group">
+          <label>Your Name</label>
+          <div class="input-wrap"><span class="input-icon">👤</span>
+            <input type="text" id="auth-name" placeholder="e.g. Arjun" autocomplete="name"/>
+          </div>
+        </div>
+        <div class="input-group">
+          <label>Email</label>
+          <div class="input-wrap"><span class="input-icon">✉️</span>
+            <input type="email" id="auth-email" placeholder="your@email.com" autocomplete="email"/>
+          </div>
+        </div>
+        <div class="input-group">
+          <label>Password</label>
+          <div class="input-wrap"><span class="input-icon">🔒</span>
+            <input type="password" id="auth-password" placeholder="Enter password" autocomplete="current-password"/>
+          </div>
+        </div>
+        <button class="btn-primary" id="auth-btn" onclick="window.handleAuth()">
+          <span id="auth-btn-text">Enter Our Diary 💖</span>
+          <div id="auth-spinner" class="spinner" style="display:none"></div>
+        </button>
+        <p class="auth-note">New here? Account is created automatically ✨</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- DIARY SCREEN -->
+  <div id="diary-screen" class="screen" style="display:none;flex-direction:column">
+
+    <!-- Top bar -->
+    <header class="top-bar">
+      <div class="top-bar-left">
+        <span class="top-bar-heart">💖</span>
+        <span class="top-bar-title">Our Secret Diary</span>
+      </div>
+      <div class="top-bar-right">
+        <span class="user-badge" id="user-badge">...</span>
+        <button class="btn-logout" onclick="window.handleLogout()">Logout</button>
+      </div>
+    </header>
+
+    <!-- Main content -->
+    <main class="diary-main">
+
+      <!-- Write panel -->
+      <section class="write-panel">
+        <div class="write-card">
+          <div class="write-card-header">
+            <span class="write-icon">✍️</span>
+            <span class="write-date" id="write-date"></span>
+          </div>
+          <textarea id="entry-text" class="diary-textarea"
+            placeholder="Dear diary… what's on your heart today? 🌸"
+            maxlength="2000"></textarea>
+          <div class="write-footer">
+            <span class="char-count" id="char-count">0 / 2000</span>
+            <button class="btn-save" id="save-btn" onclick="window.saveEntry()">
+              <span id="save-btn-text">Save Entry 💕</span>
+              <div id="save-spinner" class="spinner" style="display:none"></div>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Feed panel -->
+      <section class="feed-panel">
+        <div class="feed-header">
+          <h2 class="feed-title">Our Stories</h2>
+          <div class="live-badge">● Live</div>
+        </div>
+        <div id="entries-container" class="entries-container">
+          <div id="loading-state" class="loading-state">
+            <div class="loading-heart">💗</div>
+            <p>Loading your diary…</p>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <footer class="site-footer">
+      Made with 💖 by <a href="https://www.instagram.com/bettercallvrd?igsh=MWI0dm0xcDI4ZzVueA==" target="_blank" rel="noopener" class="footer-link">@bettercallvrd</a>
+    </footer>
+  </div>
+
+  <!-- BLOCKED -->
+  <div id="blocked-screen" class="screen" style="display:none;align-items:center;justify-content:center">
+    <div class="blocked-container">
+      <div class="blocked-icon">🔒</div>
+      <h2>Private Diary</h2>
+      <p>This diary is only for two special people.</p>
+      <button class="btn-primary" onclick="window.handleLogout()">Sign Out</button>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" style="display:none"></div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
