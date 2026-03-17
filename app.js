@@ -105,14 +105,11 @@ window.saveEntry = async function(){
 /* LOAD */
 function loadEntries(){
   const container = document.getElementById("entries-container");
-  const loading = document.getElementById("loading-text");
 
   const q = query(collection(db,"entries"), orderBy("createdAt","desc"));
 
   unsubscribe = onSnapshot(q,snap=>{
     container.innerHTML="";
-
-    if(loading) loading.remove();
 
     snap.forEach(docSnap=>{
       const data = docSnap.data();
@@ -144,4 +141,4 @@ window.deleteEntry = async function(id){
 function show(id){
   document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));
   document.getElementById(id).classList.add("active");
-     }
+}     }
