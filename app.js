@@ -1,43 +1,20 @@
 /**
- * Our Secret Diary 💖
- * ─────────────────────────────────────────────
- * Firebase Authentication + Firestore Realtime
- *
- * SETUP: Replace the firebaseConfig object below
- * with your own Firebase project credentials.
- * See README.md for full setup instructions.
- * ─────────────────────────────────────────────
+ * Our Secret Diary 💖 — Full Featured
+ * Firebase Auth + Firestore + All Features
  */
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
-  getAuth,
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  onAuthStateChanged,
-  signOut,
-  setPersistence,
-  browserLocalPersistence
+  getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword,
+  onAuthStateChanged, signOut, setPersistence, browserLocalPersistence
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
-  getFirestore,
-  collection,
-  addDoc,
-  deleteDoc,
-  doc,
-  setDoc,
-  getDoc,
-  query,
-  orderBy,
-  onSnapshot,
-  serverTimestamp,
-  where
+  getFirestore, collection, addDoc, deleteDoc, doc, setDoc, getDoc,
+  updateDoc, query, orderBy, onSnapshot, serverTimestamp, where,
+  arrayUnion, arrayRemove, increment
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-
-// ═══════════════════════════════════════════════
-//  🔧 FIREBASE CONFIG — REPLACE WITH YOUR OWN
-// ═══════════════════════════════════════════════
+// ── Firebase Config ──────────────────────────────
 const firebaseConfig = {
   apiKey:            "AIzaSyDxOUi53zfnq1YbfZxQbHKURfizZpsbc5A",
   authDomain:        "our-secret-diary.firebaseapp.com",
@@ -47,440 +24,525 @@ const firebaseConfig = {
   appId:             "1:834741276150:web:05063d4b78fefb9d7f4bd7"
 };
 
-// ═══════════════════════════════════════════════
-//  👥 ALLOWED USERS — ADD YOUR 2 EMAILS HERE
-// ═══════════════════════════════════════════════
-// Set to null = any logged-in user can access.
-// Later lock it down: const ALLOWED_EMAILS = ["you@x.com", "her@x.com"];
+// ── Allowed Emails (null = open, set to restrict) ──
 const ALLOWED_EMAILS = null;
 
-// ─── Init Firebase ───
+// ── Init ─────────────────────────────────────────
 const app  = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db   = getFirestore(app);
-
-// Enable persistent login (stay logged in across refreshes)
 setPersistence(auth, browserLocalPersistence);
 
-// ─── Avatar colors for each user ───
-const AVATAR_COLORS = ["#e8789a", "#7bb8d4", "#a08ec2", "#7ec48a"];
+// ── State ────────────────────────────────────────
+let currentUser   = null;
+let allEntries    = [];
+let activeFilter  = 'all';
+let searchQuery   = '';
+let selectedMood  = '';
+let selectedPhoto = null; // base64 string
+let unsubEntries  = null;
+let unsubPings    = null;
+let calDate       = new Date();
+let entryDates    = new Set();
+let fontSizeIdx   = 1; // 0=small,1=medium,2=large
+const FONT_SIZES  = ['0.88rem','1rem','1.1rem'];
+const FONT_LABELS = ['Small','Medium','Large'];
+const AVATAR_COLORS = ['#e8789a','#7bb8d4','#a08ec2','#7ec48a','#e8936a'];
+const REACT_EMOJIS  = ['❤️','😂','😮','😢','🔥','👏'];
 
-
-// ═══════════════════════════════════════════════
-//  🌸 PETAL GENERATOR
-// ═══════════════════════════════════════════════
-function spawnPetals() {
-  const container = document.getElementById("petals");
-  const symbols   = ["🌸", "🌺", "💮", "✿", "🌷", "💖", "💗", "🩷"];
-  for (let i = 0; i < 18; i++) {
-    const petal = document.createElement("span");
-    petal.className = "petal";
-    petal.textContent = symbols[Math.floor(Math.random() * symbols.length)];
-    petal.style.left            = `${Math.random() * 100}%`;
-    petal.style.fontSize        = `${0.7 + Math.random() * 1}rem`;
-    petal.style.animationDuration = `${6 + Math.random() * 10}s`;
-    petal.style.animationDelay  = `${Math.random() * 12}s`;
-    container.appendChild(petal);
+// ── Petals ───────────────────────────────────────
+(function spawnPetals(){
+  const c = document.getElementById('petals');
+  const s = ['🌸','🌺','💮','🌷','💖','💗','🩷','✿'];
+  for(let i=0;i<16;i++){
+    const p = document.createElement('span');
+    p.className = 'petal';
+    p.textContent = s[Math.floor(Math.random()*s.length)];
+    p.style.left = `${Math.random()*100}%`;
+    p.style.fontSize = `${0.6+Math.random()*0.7}rem`;
+    p.style.animationDuration = `${7+Math.random()*10}s`;
+    p.style.animationDelay = `${Math.random()*12}s`;
+    c.appendChild(p);
   }
-}
-spawnPetals();
+})();
 
+// ── Load saved prefs ─────────────────────────────
+(function loadPrefs(){
+  const dark  = localStorage.getItem('sd_dark') === '1';
+  const theme = localStorage.getItem('sd_theme') || 'pink';
+  const fs    = parseInt(localStorage.getItem('sd_font') || '1');
+  if(dark) document.body.classList.add('dark'), document.getElementById('dark-toggle').textContent='☀️';
+  document.documentElement.setAttribute('data-theme', theme);
+  document.querySelectorAll('.swatch').forEach(s=>s.classList.toggle('active', s.dataset.theme===theme));
+  fontSizeIdx = fs;
+  document.documentElement.style.setProperty('--font-size', FONT_SIZES[fs]);
+  document.getElementById('font-size-label').textContent = FONT_LABELS[fs];
+})();
 
-// ═══════════════════════════════════════════════
-//  🔐 AUTH STATE LISTENER
-// ═══════════════════════════════════════════════
-let unsubscribeEntries = null; // hold Firestore listener so we can detach on logout
-
-onAuthStateChanged(auth, (user) => {
-  if (user) {
+// ══════════════════════════════════════
+//  AUTH STATE
+// ══════════════════════════════════════
+onAuthStateChanged(auth, async (user) => {
+  if(user){
     const email = user.email.toLowerCase();
-
-    // If ALLOWED_EMAILS is null, anyone can log in.
-    // Otherwise check the list (case-insensitive).
-    const isAllowed = !ALLOWED_EMAILS ||
-      ALLOWED_EMAILS.some(e => e.toLowerCase() === email);
-
-    if (isAllowed) {
-      showScreen("diary-screen");
-      initDiary(user);
+    const allowed = !ALLOWED_EMAILS || ALLOWED_EMAILS.some(e=>e.toLowerCase()===email);
+    if(allowed){
+      currentUser = user;
+      showScreen('diary-screen');
+      await initDiary(user);
     } else {
-      // Authenticated but not in the allowed list
-      showScreen("blocked-screen");
+      showScreen('blocked-screen');
     }
   } else {
-    // Not logged in
-    if (unsubscribeEntries) {
-      unsubscribeEntries();
-      unsubscribeEntries = null;
-    }
-    showScreen("auth-screen");
-    clearDiaryUI();
+    currentUser = null;
+    if(unsubEntries){ unsubEntries(); unsubEntries=null; }
+    if(unsubPings)  { unsubPings();   unsubPings=null;   }
+    showScreen('auth-screen');
   }
 });
 
+// ══════════════════════════════════════
+//  AUTH HANDLER
+// ══════════════════════════════════════
+window.handleAuth = async function(){
+  const name  = document.getElementById('auth-name').value.trim();
+  const email = document.getElementById('auth-email').value.trim().toLowerCase();
+  const pass  = document.getElementById('auth-password').value;
+  const errEl = document.getElementById('auth-error');
+  const infEl = document.getElementById('auth-info');
+  hideEl(errEl); hideEl(infEl);
 
-// ═══════════════════════════════════════════════
-//  🔑 AUTH HANDLER — Sign in or auto-create
-// ═══════════════════════════════════════════════
-window.handleAuth = async function () {
-  const email    = document.getElementById("auth-email").value.trim().toLowerCase();
-  const name     = document.getElementById("auth-name").value.trim();
-  const password = document.getElementById("auth-password").value;
-  const errEl    = document.getElementById("auth-error");
-  const infoEl   = document.getElementById("auth-info");
-
-  hideEl(errEl); hideEl(infoEl);
-
-  if (!email || !password) {
-    showEl(errEl, "Please enter your email and password 💌");
-    return;
-  }
-  if (password.length < 6) {
-    showEl(errEl, "Password must be at least 6 characters");
-    return;
-  }
-
+  if(!email||!pass){ showEl(errEl,'Please fill in email and password 💌'); return; }
+  if(pass.length<6){ showEl(errEl,'Password needs at least 6 characters'); return; }
   setAuthLoading(true);
 
   try {
-    // Try login first
-    const cred = await signInWithEmailAndPassword(auth, email, password);
-    // If name provided, update it in Firestore
-    if (name) await saveUserName(cred.user.uid, email, name);
-    // onAuthStateChanged will handle navigation
-  } catch (loginErr) {
-    if (loginErr.code === "auth/user-not-found" || loginErr.code === "auth/invalid-credential") {
-      // Auto-create account
+    const cred = await signInWithEmailAndPassword(auth, email, pass);
+    if(name) await saveUserProfile(cred.user.uid, email, name);
+  } catch(e){
+    if(e.code==='auth/user-not-found'||e.code==='auth/invalid-credential'){
       try {
-        showEl(infoEl, "Creating your account… ✨");
-        const cred = await createUserWithEmailAndPassword(auth, email, password);
-        // Save name on first signup
-        await saveUserName(cred.user.uid, email, name || email.split("@")[0]);
-      } catch (signupErr) {
-        showEl(errEl, friendlyError(signupErr.code));
+        showEl(infEl,'Creating your account ✨');
+        const cred = await createUserWithEmailAndPassword(auth, email, pass);
+        await saveUserProfile(cred.user.uid, email, name||email.split('@')[0]);
+      } catch(e2){
+        showEl(errEl, friendlyErr(e2.code));
         setAuthLoading(false);
       }
     } else {
-      showEl(errEl, friendlyError(loginErr.code));
+      showEl(errEl, friendlyErr(e.code));
       setAuthLoading(false);
     }
   }
 };
 
-// Save display name to Firestore users collection
-async function saveUserName(uid, email, name) {
-  await setDoc(doc(db, "users", uid), { name, email }, { merge: true });
-}
-
-// Fetch display name from Firestore (returns name or falls back to email prefix)
-async function getUserName(uid, email) {
-  try {
-    const snap = await getDoc(doc(db, "users", uid));
-    if (snap.exists() && snap.data().name) return snap.data().name;
-  } catch (e) {}
-  return email.split("@")[0];
-}
-
-// Allow pressing Enter to submit
-document.getElementById("auth-password").addEventListener("keydown", (e) => {
-  if (e.key === "Enter") window.handleAuth();
+document.getElementById('auth-password').addEventListener('keydown', e => {
+  if(e.key==='Enter') window.handleAuth();
 });
 
+async function saveUserProfile(uid, email, name){
+  await setDoc(doc(db,'users',uid),{name,email},{merge:true});
+}
+async function getUserName(uid, email){
+  try {
+    const snap = await getDoc(doc(db,'users',uid));
+    if(snap.exists()&&snap.data().name) return snap.data().name;
+  } catch(e){}
+  return email.split('@')[0];
+}
 
-// ═══════════════════════════════════════════════
-//  🚪 LOGOUT
-// ═══════════════════════════════════════════════
-window.handleLogout = async function () {
-  if (unsubscribeEntries) {
-    unsubscribeEntries();
-    unsubscribeEntries = null;
-  }
+// ══════════════════════════════════════
+//  LOGOUT
+// ══════════════════════════════════════
+window.handleLogout = async function(){
+  if(unsubEntries){ unsubEntries(); unsubEntries=null; }
+  if(unsubPings)  { unsubPings();   unsubPings=null;   }
   await signOut(auth);
 };
 
-
-// ═══════════════════════════════════════════════
-//  📔 INIT DIARY — after successful auth
-// ═══════════════════════════════════════════════
-async function initDiary(user) {
-  // Fetch name from Firestore and show in top bar
+// ══════════════════════════════════════
+//  INIT DIARY
+// ══════════════════════════════════════
+async function initDiary(user){
   const name = await getUserName(user.uid, user.email);
-  document.getElementById("user-badge").textContent = `💌 ${name}`;
-
-  // Store name on window so saveEntry can use it
   window._myName = name;
+  document.getElementById('user-badge').textContent = `💌 ${name}`;
+  document.getElementById('write-date').textContent = formatDateFull(new Date());
 
-  // Show today's date in the write card
-  document.getElementById("write-date").textContent = formatDateFull(new Date());
-
-  // Character counter
-  const textarea = document.getElementById("entry-text");
-  textarea.addEventListener("input", () => {
-    const len = textarea.value.length;
-    document.getElementById("char-count").textContent = `${len} / 2000`;
+  const textarea = document.getElementById('entry-text');
+  textarea.addEventListener('input',()=>{
+    document.getElementById('char-count').textContent = `${textarea.value.length} / 2000`;
   });
 
-  // Start real-time listener
   listenToEntries(user);
+  listenToPings(user);
+  loadLoveMeter();
 }
 
-
-// ═══════════════════════════════════════════════
-//  💾 SAVE ENTRY
-// ═══════════════════════════════════════════════
-window.saveEntry = async function () {
+// ══════════════════════════════════════
+//  SAVE ENTRY
+// ══════════════════════════════════════
+window.saveEntry = async function(){
   const user    = auth.currentUser;
-  const textarea = document.getElementById("entry-text");
-  const text     = textarea.value.trim();
-
-  if (!text) {
-    showToast("Write something first 📝");
-    return;
-  }
-
+  const text    = document.getElementById('entry-text').value.trim();
+  if(!text && !selectedPhoto){ showToast('Write something first 📝'); return; }
   setSaveLoading(true);
 
   try {
-    await addDoc(collection(db, "entries"), {
+    await addDoc(collection(db,'entries'),{
       text,
       email:     user.email,
       uid:       user.uid,
-      name:      window._myName || user.email.split("@")[0],
+      name:      window._myName || user.email.split('@')[0],
+      mood:      selectedMood || '',
+      photo:     selectedPhoto || '',
+      pinned:    false,
+      reactions: {},
       createdAt: serverTimestamp()
     });
 
-    // Clear textarea and counter
-    textarea.value = "";
-    document.getElementById("char-count").textContent = "0 / 2000";
-    showToast("Saved to our diary 💖");
-  } catch (err) {
-    console.error("Save error:", err);
-    showToast("Failed to save — try again 😢");
+    // Reset UI
+    document.getElementById('entry-text').value = '';
+    document.getElementById('char-count').textContent = '0 / 2000';
+    selectedMood = '';
+    document.querySelectorAll('.mood-btn').forEach(b=>b.classList.remove('selected'));
+    clearPhoto();
+    showToast('Saved to our diary 💖');
+
+    // Update love meter daily streak
+    await updateStreak(user.uid);
+
+    // Send browser notification to partner
+    notifyPartner(window._myName);
+
+  } catch(e){
+    console.error(e);
+    showToast('Failed to save 😢');
   } finally {
     setSaveLoading(false);
   }
 };
 
+// ══════════════════════════════════════
+//  REAL-TIME LISTENER
+// ══════════════════════════════════════
+function listenToEntries(user){
+  const container = document.getElementById('entries-container');
+  const loadingEl = document.getElementById('loading-state');
 
-// ═══════════════════════════════════════════════
-//  📡 REAL-TIME LISTENER (onSnapshot)
-// ═══════════════════════════════════════════════
-function listenToEntries(user) {
-  const container   = document.getElementById("entries-container");
-  const loadingEl   = document.getElementById("loading-state");
-
-  // If ALLOWED_EMAILS is set, filter to just those users.
-  // Otherwise fetch all entries (open mode).
   const q = ALLOWED_EMAILS
-    ? query(
-        collection(db, "entries"),
-        where("email", "in", ALLOWED_EMAILS.map(e => e.toLowerCase())),
-        orderBy("createdAt", "desc")
-      )
-    : query(
-        collection(db, "entries"),
-        orderBy("createdAt", "desc")
-      );
+    ? query(collection(db,'entries'), where('email','in',ALLOWED_EMAILS.map(e=>e.toLowerCase())), orderBy('createdAt','desc'))
+    : query(collection(db,'entries'), orderBy('createdAt','desc'));
 
-  unsubscribeEntries = onSnapshot(q, (snapshot) => {
+  unsubEntries = onSnapshot(q, snapshot => {
     hideEl(loadingEl);
+    allEntries = [];
+    entryDates = new Set();
 
-    if (snapshot.empty) {
-      container.innerHTML = `
-        <div class="empty-state">
-          <span class="empty-icon">🌸</span>
-          <p>Your diary is waiting for its first story…</p>
-        </div>`;
-      return;
-    }
-
-    // Render entries
-    container.innerHTML = "";
-    snapshot.forEach((doc, idx) => {
-      const data   = doc.data();
-      const isMine = data.email?.toLowerCase() === user.email.toLowerCase();
-      const card   = buildEntryCard(data, isMine, idx, doc.id);
-      container.appendChild(card);
+    snapshot.forEach(d => {
+      const data = { id: d.id, ...d.data() };
+      allEntries.push(data);
+      if(data.createdAt){
+        const dt = data.createdAt.toDate();
+        entryDates.add(`${dt.getFullYear()}-${dt.getMonth()}-${dt.getDate()}`);
+      }
     });
 
-  }, (err) => {
-    console.error("Firestore listener error:", err);
-    container.innerHTML = `
-      <div class="empty-state">
-        <span class="empty-icon">😢</span>
-        <p>Couldn't load entries. Check your connection.</p>
-      </div>`;
+    renderEntries(user);
+    renderCalendar();
+  }, err => {
+    console.error(err);
+    container.innerHTML = `<div class="empty-state"><span class="empty-icon">😢</span><p>Couldn't load entries.</p></div>`;
   });
 }
 
+function renderEntries(user){
+  const u = user || currentUser;
+  const container = document.getElementById('entries-container');
+  let list = [...allEntries];
 
-// ═══════════════════════════════════════════════
-//  🃏 BUILD ENTRY CARD
-// ═══════════════════════════════════════════════
-function buildEntryCard(data, isMine, idx, docId) {
-  const card = document.createElement("div");
-  card.className = `entry-card ${isMine ? "mine" : "theirs"}`;
-  card.style.animationDelay = `${idx * 0.06}s`;
+  // Filter
+  if(activeFilter==='mine')   list = list.filter(e=>e.email?.toLowerCase()===u.email.toLowerCase());
+  if(activeFilter==='theirs') list = list.filter(e=>e.email?.toLowerCase()!==u.email.toLowerCase());
+  if(activeFilter==='pinned') list = list.filter(e=>e.pinned);
 
-  // Use saved name if available, fall back to email prefix
-  const displayName = data.name || (data.email || "someone").split("@")[0];
+  // Search
+  if(searchQuery){
+    const q = searchQuery.toLowerCase();
+    list = list.filter(e=>(e.text||'').toLowerCase().includes(q)||(e.name||'').toLowerCase().includes(q));
+  }
+
+  if(!list.length){
+    container.innerHTML = `<div class="empty-state"><span class="empty-icon">🌸</span><p>${searchQuery||activeFilter!=='all'?'No matching entries found':'Your diary is waiting for its first story…'}</p></div>`;
+    return;
+  }
+
+  container.innerHTML = '';
+  list.forEach((data,idx) => {
+    const isMine = data.email?.toLowerCase()===u.email.toLowerCase();
+    const card = buildEntryCard(data, isMine, idx);
+    container.appendChild(card);
+  });
+}
+
+// ══════════════════════════════════════
+//  BUILD ENTRY CARD
+// ══════════════════════════════════════
+function buildEntryCard(data, isMine, idx){
+  const card = document.createElement('div');
+  card.className = `entry-card ${isMine?'mine':'theirs'} ${data.pinned?'pinned-card':''}`;
+  card.style.animationDelay = `${idx*0.05}s`;
+  card.dataset.id = data.id;
+
+  const displayName = data.name || (data.email||'someone').split('@')[0];
   const initials    = displayName[0].toUpperCase();
+  const colorIdx    = simpleHash(data.email||'') % AVATAR_COLORS.length;
+  const timeStr     = data.createdAt ? formatDate(data.createdAt.toDate()) : 'Just now';
+  const tag         = isMine ? `<span class="mine-tag">You</span>` : `<span class="theirs-tag">💌 ${escHtml(displayName)}</span>`;
+  const moodEl      = data.mood ? `<span class="mood-tag">${data.mood}</span>` : '';
+  const pinEl       = data.pinned ? `<span class="pin-badge" title="Pinned">📌</span>` : '';
+  const pinBtn      = isMine ? `<button class="btn-pin" title="${data.pinned?'Unpin':'Pin'}" onclick="togglePin('${data.id}',${data.pinned})">📌</button>` : '';
+  const delBtn      = isMine ? `<button class="btn-delete" title="Delete" onclick="confirmDelete('${data.id}',this)">🗑️</button>` : '';
+  const photoEl     = data.photo ? `<img class="entry-photo" src="${data.photo}" alt="Photo" loading="lazy"/>` : '';
 
-  // Determine avatar color based on uid/email hash
-  const colorIdx    = simpleHash(data.email || "") % AVATAR_COLORS.length;
-  const avatarColor = AVATAR_COLORS[colorIdx];
-
-  const timeStr = data.createdAt
-    ? formatDate(data.createdAt.toDate())
-    : "Just now";
-
-  const tagEl = isMine
-    ? `<span class="mine-tag">You</span>`
-    : `<span class="theirs-tag">💌 ${displayName}</span>`;
-
-  // Only show delete button on your own entries
-  const deleteBtn = isMine
-    ? `<button class="btn-delete" title="Delete entry" data-id="${docId}">🗑️</button>`
-    : "";
+  // Reactions
+  const reactions = data.reactions || {};
+  const reactionHTML = buildReactionsHTML(reactions, data.id);
 
   card.innerHTML = `
     <div class="entry-meta">
       <div class="entry-author">
-        <div class="author-avatar" style="background:${avatarColor}">${initials}</div>
-        <span class="author-name">${escapeHtml(displayName)}</span>
-        ${tagEl}
+        <div class="author-avatar" style="background:${AVATAR_COLORS[colorIdx]}">${initials}</div>
+        <span class="author-name">${escHtml(displayName)}</span>
+        ${tag} ${moodEl} ${pinEl}
       </div>
       <div class="entry-meta-right">
         <span class="entry-time">${timeStr}</span>
-        ${deleteBtn}
+        ${pinBtn} ${delBtn}
       </div>
     </div>
-    <div class="entry-body">${escapeHtml(data.text)}</div>
+    <div class="entry-body">${escHtml(data.text)}</div>
+    ${photoEl}
+    <div class="reactions-row" id="react-row-${data.id}">${reactionHTML}</div>
   `;
-
-  // Attach delete handler
-  if (isMine) {
-    card.querySelector(".btn-delete").addEventListener("click", () => {
-      confirmDelete(docId, card);
-    });
-  }
 
   return card;
 }
 
+function buildReactionsHTML(reactions, docId){
+  const uid = currentUser?.uid || '';
+  let html = '';
+  REACT_EMOJIS.forEach(emoji => {
+    const users = reactions[emojiKey(emoji)] || [];
+    if(users.length>0){
+      const reacted = users.includes(uid);
+      html += `<button class="react-btn ${reacted?'reacted':''}" onclick="toggleReaction('${docId}','${emoji}')">
+        ${emoji} <span class="react-count">${users.length}</span>
+      </button>`;
+    }
+  });
+  html += `<button class="add-react-btn" onclick="openEmojiPicker('${docId}',this)">＋</button>`;
+  return html;
+}
 
-// ═══════════════════════════════════════════════
-//  🗑️ DELETE ENTRY
-// ═══════════════════════════════════════════════
-async function confirmDelete(docId, cardEl) {
-  // Soft confirm — highlight card then ask
-  cardEl.classList.add("deleting");
-
-  const confirmed = window.confirm("Delete this entry from our diary? 💔");
-  if (!confirmed) {
-    cardEl.classList.remove("deleting");
-    return;
+// ══════════════════════════════════════
+//  REACTIONS
+// ══════════════════════════════════════
+window.toggleReaction = async function(docId, emoji){
+  const uid = currentUser?.uid;
+  if(!uid) return;
+  const key = emojiKey(emoji);
+  const ref = doc(db,'entries',docId);
+  const snap = await getDoc(ref);
+  if(!snap.exists()) return;
+  const users = (snap.data().reactions||{})[key] || [];
+  if(users.includes(uid)){
+    await updateDoc(ref, { [`reactions.${key}`]: arrayRemove(uid) });
+  } else {
+    await updateDoc(ref, { [`reactions.${key}`]: arrayUnion(uid) });
   }
+};
 
+window.openEmojiPicker = function(docId, btn){
+  // Remove any existing picker
+  document.querySelectorAll('.emoji-picker-popup').forEach(p=>p.remove());
+  const picker = document.createElement('div');
+  picker.className = 'emoji-picker-popup';
+  REACT_EMOJIS.forEach(e=>{
+    const opt = document.createElement('span');
+    opt.className = 'emoji-opt';
+    opt.textContent = e;
+    opt.onclick = () => { toggleReaction(docId,e); picker.remove(); };
+    picker.appendChild(opt);
+  });
+  btn.parentElement.style.position='relative';
+  btn.parentElement.appendChild(picker);
+  setTimeout(()=>document.addEventListener('click',()=>picker.remove(),{once:true}),50);
+};
+
+function emojiKey(emoji){ return [...emoji].map(c=>c.codePointAt(0).toString(16)).join('_'); }
+
+// ══════════════════════════════════════
+//  DELETE & PIN
+// ══════════════════════════════════════
+window.confirmDelete = async function(docId, btn){
+  const card = btn.closest('.entry-card');
+  card.classList.add('deleting');
+  if(!confirm('Delete this entry? 💔')){ card.classList.remove('deleting'); return; }
   try {
-    await deleteDoc(doc(db, "entries", docId));
-    // Card will disappear automatically via onSnapshot
-    showToast("Entry deleted 🗑️");
-  } catch (err) {
-    console.error("Delete error:", err);
-    cardEl.classList.remove("deleting");
-    showToast("Couldn't delete — try again 😢");
+    await deleteDoc(doc(db,'entries',docId));
+    showToast('Entry deleted 🗑️');
+  } catch(e){
+    card.classList.remove('deleting');
+    showToast('Could not delete 😢');
   }
-}
+};
 
+window.togglePin = async function(docId, currentlyPinned){
+  try {
+    await updateDoc(doc(db,'entries',docId),{ pinned: !currentlyPinned });
+    showToast(currentlyPinned ? 'Unpinned' : 'Pinned 📌');
+  } catch(e){ showToast('Could not pin 😢'); }
+};
 
-// ═══════════════════════════════════════════════
-//  🛠️ HELPERS
-// ═══════════════════════════════════════════════
+// ══════════════════════════════════════
+//  MOOD
+// ══════════════════════════════════════
+window.selectMood = function(btn){
+  selectedMood = btn.dataset.mood;
+  document.querySelectorAll('.mood-btn').forEach(b=>b.classList.remove('selected'));
+  btn.classList.add('selected');
+};
 
-function showScreen(id) {
-  document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
-  document.getElementById(id).classList.add("active");
-}
-
-function clearDiaryUI() {
-  document.getElementById("entries-container").innerHTML =
-    '<div class="loading-state" id="loading-state"><div class="loading-heart">💗</div><p>Loading your diary…</p></div>';
-  document.getElementById("entry-text").value = "";
-  document.getElementById("char-count").textContent = "0 / 2000";
-  document.getElementById("auth-error").classList.add("hidden");
-  document.getElementById("auth-info").classList.add("hidden");
-  setAuthLoading(false);
-}
-
-function showEl(el, msg) {
-  el.textContent = msg;
-  el.classList.remove("hidden");
-}
-function hideEl(el) { el.classList.add("hidden"); }
-
-function setAuthLoading(on) {
-  document.getElementById("auth-btn-text").classList.toggle("hidden", on);
-  document.getElementById("auth-spinner").classList.toggle("hidden", !on);
-  document.getElementById("auth-btn").disabled = on;
-}
-function setSaveLoading(on) {
-  document.getElementById("save-btn-text").classList.toggle("hidden", on);
-  document.getElementById("save-spinner").classList.toggle("hidden", !on);
-  document.getElementById("save-btn").disabled = on;
-}
-
-function showToast(msg) {
-  const toast = document.getElementById("toast");
-  toast.textContent = msg;
-  toast.classList.remove("hidden");
-  toast.classList.add("show");
-  setTimeout(() => {
-    toast.classList.remove("show");
-    setTimeout(() => toast.classList.add("hidden"), 350);
-  }, 2800);
-}
-
-function formatDate(date) {
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short", day: "numeric",
-    hour: "numeric", minute: "2-digit", hour12: true
-  }).format(date);
-}
-
-function formatDateFull(date) {
-  return new Intl.DateTimeFormat("en-US", {
-    weekday: "long", year: "numeric",
-    month: "long", day: "numeric"
-  }).format(date);
-}
-
-function escapeHtml(str) {
-  return str
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
-}
-
-function simpleHash(str) {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    hash = (hash * 31 + str.charCodeAt(i)) & 0xffffffff;
-  }
-  return Math.abs(hash);
-}
-
-function friendlyError(code) {
-  const map = {
-    "auth/invalid-email":        "That doesn't look like a valid email 💌",
-    "auth/wrong-password":       "Wrong password. Try again 🔐",
-    "auth/too-many-requests":    "Too many attempts. Wait a moment ⏳",
-    "auth/email-already-in-use": "This email already has an account",
-    "auth/weak-password":        "Password must be at least 6 characters",
-    "auth/network-request-failed": "No internet connection 🌐",
+// ══════════════════════════════════════
+//  PHOTO
+// ══════════════════════════════════════
+window.handlePhotoSelect = function(e){
+  const file = e.target.files[0];
+  if(!file) return;
+  if(file.size > 2*1024*1024){ showToast('Image must be under 2MB 📸'); return; }
+  const reader = new FileReader();
+  reader.onload = ev => {
+    selectedPhoto = ev.target.result;
+    const preview = document.getElementById('photo-preview');
+    preview.classList.remove('hidden');
+    preview.innerHTML = `<img src="${selectedPhoto}" alt="preview"/>
+      <button class="remove-photo" onclick="clearPhoto()">✕</button>`;
   };
-  return map[code] || "Something went wrong. Please try again.";
+  reader.readAsDataURL(file);
+};
+
+window.clearPhoto = function(){
+  selectedPhoto = null;
+  const preview = document.getElementById('photo-preview');
+  preview.classList.add('hidden');
+  preview.innerHTML = '';
+  document.getElementById('photo-input').value = '';
+};
+
+// ══════════════════════════════════════
+//  SEARCH & FILTER
+// ══════════════════════════════════════
+window.filterEntries = function(){
+  searchQuery = document.getElementById('search-input').value;
+  renderEntries();
+};
+
+window.setFilter = function(filter, btn){
+  activeFilter = filter;
+  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderEntries();
+};
+
+// ══════════════════════════════════════
+//  CALENDAR
+// ══════════════════════════════════════
+window.toggleCalendar = function(){
+  document.getElementById('calendar-panel').classList.toggle('hidden');
+  renderCalendar();
+};
+window.calPrev = function(){ calDate.setMonth(calDate.getMonth()-1); renderCalendar(); };
+window.calNext = function(){ calDate.setMonth(calDate.getMonth()+1); renderCalendar(); };
+
+function renderCalendar(){
+  const grid  = document.getElementById('calendar-grid');
+  const label = document.getElementById('cal-month-label');
+  if(!grid||document.getElementById('calendar-panel').classList.contains('hidden')) return;
+
+  const year  = calDate.getFullYear();
+  const month = calDate.getMonth();
+  label.textContent = new Date(year,month,1).toLocaleDateString('en-US',{month:'long',year:'numeric'});
+
+  const days = ['Su','Mo','Tu','We','Th','Fr','Sa'];
+  let html = days.map(d=>`<div class="cal-day-name">${d}</div>`).join('');
+
+  const firstDay = new Date(year,month,1).getDay();
+  const daysInMonth = new Date(year,month+1,0).getDate();
+  const today = new Date();
+
+  // Blank cells
+  for(let i=0;i<firstDay;i++) html+=`<div class="cal-day other-month"></div>`;
+
+  for(let d=1;d<=daysInMonth;d++){
+    const key = `${year}-${month}-${d}`;
+    const hasEntry = entryDates.has(key);
+    const isToday  = d===today.getDate()&&month===today.getMonth()&&year===today.getFullYear();
+    html+=`<div class="cal-day ${hasEntry?'has-entry':''} ${isToday?'today':''}"
+      onclick="calDayClick(${year},${month},${d})" title="${hasEntry?'Has entries':''}">${d}</div>`;
+  }
+
+  grid.innerHTML = html;
 }
-  
+
+window.calDayClick = function(year, month, day){
+  // Filter entries for that date
+  const start = new Date(year,month,day);
+  const end   = new Date(year,month,day+1);
+  const u = currentUser;
+  const container = document.getElementById('entries-container');
+  const filtered = allEntries.filter(e=>{
+    if(!e.createdAt) return false;
+    const d = e.createdAt.toDate();
+    return d>=start && d<end;
+  });
+  container.innerHTML='';
+  if(!filtered.length){ container.innerHTML=`<div class="empty-state"><span class="empty-icon">📅</span><p>No entries on this day</p></div>`; return; }
+  filtered.forEach((data,idx)=>{
+    const isMine = data.email?.toLowerCase()===u.email.toLowerCase();
+    container.appendChild(buildEntryCard(data,isMine,idx));
+  });
+  // Reset filter shows all button
+  document.getElementById('calendar-panel').classList.add('hidden');
+  showToast(`Showing ${new Date(year,month,day).toLocaleDateString('en-US',{month:'short',day:'numeric'})} 📅`);
+};
+
+// ══════════════════════════════════════
+//  LOVE METER (streak)
+// ══════════════════════════════════════
+async function updateStreak(uid){
+  const ref = doc(db,'streaks',uid);
+  const today = new Date().toDateString();
+  const snap = await getDoc(ref);
+  if(!snap.exists()){
+    await setDoc(ref,{ lastDate:today, streak:1 });
+  } else {
+    const { lastDate, streak } = snap.data();
+    const yesterday = new Date(Date.now()-86400000).toDateString();
+    if(lastDate===today) return;
+    const newStreak = lastDate===yesterday ? (streak||0)+1 : 1;
+    await setDoc(ref,{ lastDate:today, streak:newStreak });
+  }
+  loadLoveMeter();
+}
+
+async function loadLoveMeter(){
+  if(!currentUser) return;
+  try {
+    const snap = await getDoc(doc(db,'streaks',currentUser.uid));
+    const streak = snap.exists() ? (snap.data().streak||0) : 0;
+    document.getElementById('streak-count').textContent = streak;
+  } catch(e){}
+}
+
+// ═════════════════════════════════════
