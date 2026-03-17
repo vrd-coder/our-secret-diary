@@ -1,5 +1,5 @@
 /**
- * Our Secret Diary 💖
+ * Our Secret Diary 💖 — Final Version
  */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
@@ -12,7 +12,7 @@ import {
   arrayUnion, arrayRemove
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-// ── Config ──
+/* ── Firebase ── */
 const firebaseConfig = {
   apiKey:            "AIzaSyDxOUi53zfnq1YbfZxQbHKURfizZpsbc5A",
   authDomain:        "our-secret-diary.firebaseapp.com",
@@ -21,14 +21,14 @@ const firebaseConfig = {
   messagingSenderId: "834741276150",
   appId:             "1:834741276150:web:05063d4b78fefb9d7f4bd7"
 };
-const ALLOWED_EMAILS = null;
+const ALLOWED_EMAILS = null; // null = anyone can log in
 
 const app  = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db   = getFirestore(app);
 setPersistence(auth, browserLocalPersistence).catch(()=>{});
 
-// ── State ──
+/* ── State ── */
 let currentUser  = null;
 let allEntries   = [];
 let activeFilter = 'all';
@@ -40,55 +40,76 @@ let unsubPings   = null;
 let calDate      = new Date();
 let entryDates   = new Set();
 let fontSizeIdx  = 1;
-const FONT_SIZES  = ['0.88rem','1rem','1.1rem'];
-const FONT_LABELS = ['Small','Medium','Large'];
-const AVATAR_COLORS = ['#e8789a','#7bb8d4','#a08ec2','#7ec48a','#e8936a'];
-const REACT_EMOJIS  = ['❤️','😂','😮','😢','🔥','👏'];
+const FSIZES  = ['0.88rem','1rem','1.1rem'];
+const FLABELS = ['Small','Medium','Large'];
+const ACOLORS = ['#e8789a','#7bb8d4','#a08ec2','#7ec48a','#e8936a'];
+const REACTS  = ['❤️','😂','😮','😢','🔥','👏'];
 
-// ── Helpers: show/hide using style.display ──
-function el(id){ return document.getElementById(id); }
-function show(id){ el(id).style.display=''; }
-function hide(id){ el(id).style.display='none'; }
-function showEl(elem, msg){ elem.textContent=msg; elem.style.display=''; }
-function hideEl(elem){ elem.style.display='none'; }
+/* ── Helpers ── */
+const $  = id => document.getElementById(id);
+const sv = (id,v) => { const e=$('id'); if(e) e.style.display=v; };
+function showEl(e,msg){ if(e){e.textContent=msg;e.style.display='block'} }
+function hideEl(e){ if(e) e.style.display='none' }
+function showToast(msg){
+  const t=$('toast');
+  if(!t) return;
+  t.textContent=msg; t.style.display='block';
+  void t.offsetWidth; // reflow
+  t.classList.add('show');
+  setTimeout(()=>{ t.classList.remove('show'); setTimeout(()=>t.style.display='none',350); },2800);
+}
+function esc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') }
+function fmt(d){ return new Intl.DateTimeFormat('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit',hour12:true}).format(d) }
+function fmtFull(d){ return new Intl.DateTimeFormat('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'}).format(d) }
+function hash(s){ let h=0; for(let i=0;i<s.length;i++) h=(h*31+s.charCodeAt(i))&0xffffffff; return Math.abs(h) }
+function ekey(e){ return [...e].map(c=>c.codePointAt(0).toString(16)).join('_') }
 
-// ── Petals ──
+/* ── Petals ── */
 (function(){
-  const c=el('petals'), s=['🌸','🌺','💮','🌷','💖','💗','🩷'];
+  const c=$('petals'); if(!c) return;
+  const s=['🌸','🌺','💮','🌷','💖','💗','🩷'];
   for(let i=0;i<14;i++){
     const p=document.createElement('span');
     p.className='petal';
-    p.textContent=s[Math.floor(Math.random()*s.length)];
+    p.textContent=s[i%s.length];
     p.style.cssText=`left:${Math.random()*100}%;font-size:${0.6+Math.random()*0.7}rem;animation-duration:${7+Math.random()*10}s;animation-delay:${Math.random()*12}s`;
     c.appendChild(p);
   }
 })();
 
-// ── Load prefs ──
+/* ── Load prefs on startup ── */
 (function(){
   try{
-    const t=localStorage.getItem('sd_theme')||'pink';
-    document.documentElement.setAttribute('data-theme',t);
+    const theme=localStorage.getItem('sd_theme')||'pink';
+    document.documentElement.setAttribute('data-theme',theme);
     if(localStorage.getItem('sd_dark')==='1') document.body.classList.add('dark');
     fontSizeIdx=parseInt(localStorage.getItem('sd_font')||'1');
-    document.documentElement.style.setProperty('--font-size',FONT_SIZES[fontSizeIdx]);
+    document.documentElement.style.setProperty('--font-size',FSIZES[fontSizeIdx]);
   }catch(e){}
 })();
 
-// ── Screens ──
+/* ── Screen management ── */
 function showScreen(id){
-  ['auth-screen','diary-screen','blocked-screen'].forEach(s=>{
-    el(s).style.display = s===id ? 'flex' : 'none';
+  ['auth-screen','diary-screen','blocked-screen'].forEach(sid=>{
+    const el=document.getElementById(sid);
+    if(!el) return;
+    if(sid===id){
+      el.style.display='flex';
+      el.classList.add('active');
+    } else {
+      el.style.display='none';
+      el.classList.remove('active');
+    }
   });
 }
 
-// ══════════════════════════════════
-//  AUTH STATE
-// ══════════════════════════════════
-onAuthStateChanged(auth, async(user)=>{
+/* ══════════════════════════════════════════
+   AUTH STATE
+══════════════════════════════════════════ */
+onAuthStateChanged(auth, async user=>{
   if(user){
-    const allowed = !ALLOWED_EMAILS || ALLOWED_EMAILS.some(e=>e.toLowerCase()===user.email.toLowerCase());
-    if(allowed){
+    const ok = !ALLOWED_EMAILS || ALLOWED_EMAILS.some(e=>e.toLowerCase()===user.email.toLowerCase());
+    if(ok){
       currentUser=user;
       showScreen('diary-screen');
       await initDiary(user);
@@ -97,80 +118,87 @@ onAuthStateChanged(auth, async(user)=>{
     }
   } else {
     currentUser=null;
-    if(unsubEntries){unsubEntries();unsubEntries=null;}
-    if(unsubPings){unsubPings();unsubPings=null;}
+    if(unsubEntries){unsubEntries();unsubEntries=null}
+    if(unsubPings){unsubPings();unsubPings=null}
     showScreen('auth-screen');
   }
 });
 
-// ══════════════════════════════════
-//  LOGIN / SIGNUP
-// ══════════════════════════════════
+/* ══════════════════════════════════════════
+   LOGIN / SIGNUP
+══════════════════════════════════════════ */
 window.handleAuth = async function(){
-  const errEl = el('auth-error');
-  const infEl = el('auth-info');
+  const errEl = $('auth-error');
+  const infEl = $('auth-info');
+  const btn   = $('auth-btn');
+  const btnTxt= $('auth-btn-text');
+  const spin  = $('auth-spinner');
+
   hideEl(errEl); hideEl(infEl);
 
-  try {
-    const name  = (el('auth-name').value||'').trim();
-    const email = (el('auth-email').value||'').trim().toLowerCase();
-    const pass  = (el('auth-password').value||'');
+  let name='', email='', pass='';
+  try{
+    name  = ($('auth-name').value||'').trim();
+    email = ($('auth-email').value||'').trim().toLowerCase();
+    pass  = ($('auth-password').value||'');
+  }catch(e){ showEl(errEl,'Page error, please refresh'); return; }
 
-    if(!email){ showEl(errEl,'Please enter your email 💌'); return; }
-    if(!pass) { showEl(errEl,'Please enter your password 🔐'); return; }
-    if(pass.length<6){ showEl(errEl,'Password needs 6+ characters'); return; }
+  if(!email){ showEl(errEl,'Please enter your email 💌'); return; }
+  if(!pass) { showEl(errEl,'Please enter your password 🔐'); return; }
+  if(pass.length<6){ showEl(errEl,'Password needs 6+ characters'); return; }
 
-    // Disable button
-    el('auth-btn').disabled=true;
-    el('auth-btn-text').style.display='none';
-    el('auth-spinner').style.display='';
-    showEl(infEl,'Signing in…');
+  // Show loading
+  btn.disabled=true;
+  btnTxt.style.display='none';
+  spin.style.display='inline-block';
+  showEl(infEl,'Signing in…');
 
-    // Try login
-    try {
-      const cred = await signInWithEmailAndPassword(auth, email, pass);
-      if(name) await saveProfile(cred.user.uid, email, name);
-      return;
-    } catch(e){
-      if(e.code==='auth/wrong-password'||e.code==='auth/invalid-credential'){
-        // Could be wrong password OR user doesn't exist — try signup
-      } else {
-        throw e; // real error
-      }
-    }
-
-    // Try signup
-    hideEl(infEl);
-    showEl(infEl,'Creating account ✨');
-    try {
-      const cred = await createUserWithEmailAndPassword(auth, email, pass);
-      await saveProfile(cred.user.uid, email, name||email.split('@')[0]);
-    } catch(e2){
+  try{
+    // Attempt login
+    const cred = await signInWithEmailAndPassword(auth, email, pass);
+    if(name) await saveProfile(cred.user.uid, email, name);
+    // onAuthStateChanged handles the rest
+    return;
+  } catch(e1){
+    // If not wrong-password, try creating account
+    if(e1.code==='auth/wrong-password'){
       hideEl(infEl);
-      if(e2.code==='auth/email-already-in-use'){
-        showEl(errEl,'Wrong password 🔐');
-      } else {
-        showEl(errEl,'Error: '+e2.message);
-      }
-      el('auth-btn').disabled=false;
-      el('auth-btn-text').style.display='';
-      el('auth-spinner').style.display='none';
+      showEl(errEl,'Wrong password 🔐');
+      btn.disabled=false; btnTxt.style.display=''; spin.style.display='none';
+      return;
     }
+    // Fall through to signup
+  }
 
-  } catch(err){
-    showEl(errEl,'Error: '+(err.message||err.code||'unknown'));
-    el('auth-btn').disabled=false;
-    el('auth-btn-text').style.display='';
-    el('auth-spinner').style.display='none';
+  // Try create account
+  hideEl(infEl);
+  showEl(infEl,'Creating your account ✨');
+  try{
+    const cred = await createUserWithEmailAndPassword(auth, email, pass);
+    await saveProfile(cred.user.uid, email, name||email.split('@')[0]);
+    // onAuthStateChanged navigates automatically
+  } catch(e2){
+    hideEl(infEl);
+    if(e2.code==='auth/email-already-in-use'){
+      showEl(errEl,'Wrong password 🔐');
+    } else if(e2.code==='auth/invalid-email'){
+      showEl(errEl,'Invalid email address');
+    } else {
+      showEl(errEl,'Error: '+e2.message);
+    }
+    btn.disabled=false; btnTxt.style.display=''; spin.style.display='none';
   }
 };
 
-el('auth-password').addEventListener('keydown',e=>{ if(e.key==='Enter') window.handleAuth(); });
+// Enter key
+try{
+  $('auth-password').addEventListener('keydown',e=>{ if(e.key==='Enter') window.handleAuth(); });
+}catch(e){}
 
 async function saveProfile(uid,email,name){
   try{ await setDoc(doc(db,'users',uid),{name,email},{merge:true}); }catch(e){}
 }
-async function getName(uid,email){
+async function getProfile(uid,email){
   try{
     const s=await getDoc(doc(db,'users',uid));
     if(s.exists()&&s.data().name) return s.data().name;
@@ -178,83 +206,104 @@ async function getName(uid,email){
   return email.split('@')[0];
 }
 
-// ══════════════════════════════════
-//  LOGOUT
-// ══════════════════════════════════
+/* ══════════════════════════════════════════
+   LOGOUT
+══════════════════════════════════════════ */
 window.handleLogout = async function(){
-  if(unsubEntries){unsubEntries();unsubEntries=null;}
-  if(unsubPings){unsubPings();unsubPings=null;}
-  await signOut(auth);
+  try{
+    if(unsubEntries){unsubEntries();unsubEntries=null}
+    if(unsubPings){unsubPings();unsubPings=null}
+    await signOut(auth);
+  }catch(e){}
 };
 
-// ══════════════════════════════════
-//  INIT DIARY
-// ══════════════════════════════════
+/* ══════════════════════════════════════════
+   INIT DIARY
+══════════════════════════════════════════ */
 async function initDiary(user){
-  const name = await getName(user.uid, user.email);
-  window._myName = name;
-  el('user-badge').textContent = '💌 '+name;
-  el('write-date').textContent = fmtFull(new Date());
-
-  // Update UI prefs now that diary screen is visible
   try{
-    const t=localStorage.getItem('sd_theme')||'pink';
-    document.querySelectorAll('.swatch').forEach(s=>s.classList.toggle('active',s.dataset.theme===t));
-    el('font-size-label').textContent=FONT_LABELS[fontSizeIdx];
-    if(localStorage.getItem('sd_dark')==='1') el('dark-toggle').textContent='☀️';
-  }catch(e){}
+    const name = await getProfile(user.uid, user.email);
+    window._myName = name;
 
-  el('entry-text').addEventListener('input',()=>{
-    el('char-count').textContent=el('entry-text').value.length+' / 2000';
-  });
+    const badge=$('user-badge'); if(badge) badge.textContent='💌 '+name;
+    const wd=$('write-date'); if(wd) wd.textContent=fmtFull(new Date());
 
-  listenEntries(user);
-  listenPings(user);
-  loadStreak();
+    // Update prefs UI
+    const theme=localStorage.getItem('sd_theme')||'pink';
+    document.querySelectorAll('.swatch').forEach(s=>s.classList.toggle('active',s.dataset.theme===theme));
+    const fsl=$('font-size-label'); if(fsl) fsl.textContent=FLABELS[fontSizeIdx];
+    const dt=$('dark-toggle');
+    if(dt) dt.textContent=localStorage.getItem('sd_dark')==='1'?'☀️':'🌙';
+
+    // Char counter
+    const ta=$('entry-text');
+    if(ta) ta.addEventListener('input',()=>{
+      const cc=$('char-count'); if(cc) cc.textContent=ta.value.length+' / 2000';
+    });
+
+    startListening(user);
+    listenPings(user);
+    loadStreak();
+  }catch(e){ console.error('initDiary error:',e); }
 }
 
-// ══════════════════════════════════
-//  SAVE ENTRY
-// ══════════════════════════════════
+/* ══════════════════════════════════════════
+   SAVE ENTRY
+══════════════════════════════════════════ */
 window.saveEntry = async function(){
-  const text = el('entry-text').value.trim();
+  const ta=$('entry-text');
+  const text=(ta?ta.value:'').trim();
   if(!text&&!selectedPhoto){ showToast('Write something first 📝'); return; }
-  el('save-btn').disabled=true;
-  el('save-btn-text').style.display='none';
-  el('save-spinner').style.display='';
+
+  const btn=$('save-btn'), btnTxt=$('save-btn-text'), spin=$('save-spinner');
+  if(btn) btn.disabled=true;
+  if(btnTxt) btnTxt.style.display='none';
+  if(spin) spin.style.display='inline-block';
+
   try{
     await addDoc(collection(db,'entries'),{
-      text, email:currentUser.email, uid:currentUser.uid,
-      name:window._myName||currentUser.email.split('@')[0],
-      mood:selectedMood||'', photo:selectedPhoto||'',
-      pinned:false, reactions:{}, createdAt:serverTimestamp()
+      text:    text,
+      email:   currentUser.email,
+      uid:     currentUser.uid,
+      name:    window._myName||currentUser.email.split('@')[0],
+      mood:    selectedMood||'',
+      photo:   selectedPhoto||'',
+      pinned:  false,
+      reactions: {},
+      createdAt: serverTimestamp()
     });
-    el('entry-text').value='';
-    el('char-count').textContent='0 / 2000';
+
+    if(ta) ta.value='';
+    const cc=$('char-count'); if(cc) cc.textContent='0 / 2000';
     selectedMood='';
     document.querySelectorAll('.mood-btn').forEach(b=>b.classList.remove('selected'));
-    clearPhoto();
-    showToast('Saved 💖');
+    clearPhotoState();
+    showToast('Saved to our diary 💖');
     updateStreak();
     notifyNew(window._myName);
-  }catch(e){ showToast('Failed to save 😢'); }
-  finally{
-    el('save-btn').disabled=false;
-    el('save-btn-text').style.display='';
-    el('save-spinner').style.display='none';
+  }catch(e){
+    console.error('Save error:',e);
+    showToast('Failed to save: '+e.message);
+  }finally{
+    if(btn) btn.disabled=false;
+    if(btnTxt) btnTxt.style.display='';
+    if(spin) spin.style.display='none';
   }
 };
 
-// ══════════════════════════════════
-//  REALTIME LISTENER
-// ══════════════════════════════════
-function listenEntries(user){
+/* ══════════════════════════════════════════
+   REALTIME ENTRIES
+══════════════════════════════════════════ */
+function startListening(user){
+  const container=$('entries-container');
+  const loadingEl=$('loading-state');
+
   const q = ALLOWED_EMAILS
     ? query(collection(db,'entries'),where('email','in',ALLOWED_EMAILS.map(e=>e.toLowerCase())),orderBy('createdAt','desc'))
     : query(collection(db,'entries'),orderBy('createdAt','desc'));
 
-  unsubEntries=onSnapshot(q, snap=>{
-    el('loading-state').style.display='none';
+  unsubEntries = onSnapshot(q, snap=>{
+    if(loadingEl) loadingEl.style.display='none';
     allEntries=[]; entryDates=new Set();
     snap.forEach(d=>{
       const data={id:d.id,...d.data()};
@@ -266,12 +315,18 @@ function listenEntries(user){
     });
     renderEntries(user);
     renderCal();
-  }, err=>{ console.error(err); });
+  }, err=>{
+    console.error('Firestore error:',err);
+    if(container) container.innerHTML=`<div class="empty-state"><span class="empty-icon">😢</span><p>Error loading entries: ${err.message}</p></div>`;
+  });
 }
 
 function renderEntries(user){
   const u=user||currentUser;
-  const container=el('entries-container');
+  if(!u) return;
+  const container=$('entries-container');
+  if(!container) return;
+
   let list=[...allEntries];
   if(activeFilter==='mine')   list=list.filter(e=>e.email?.toLowerCase()===u.email.toLowerCase());
   if(activeFilter==='theirs') list=list.filter(e=>e.email?.toLowerCase()!==u.email.toLowerCase());
@@ -280,8 +335,11 @@ function renderEntries(user){
     const q=searchQuery.toLowerCase();
     list=list.filter(e=>(e.text||'').toLowerCase().includes(q)||(e.name||'').toLowerCase().includes(q));
   }
+
   if(!list.length){
-    container.innerHTML=`<div class="empty-state"><span class="empty-icon">🌸</span><p>${searchQuery||activeFilter!=='all'?'No entries found':'Your diary is waiting for its first story…'}</p></div>`;
+    container.innerHTML=`<div class="empty-state"><span class="empty-icon">🌸</span><p>${
+      searchQuery||activeFilter!=='all'?'No entries found…':'Your diary is waiting for its first story…'
+    }</p></div>`;
     return;
   }
   container.innerHTML='';
@@ -291,28 +349,31 @@ function renderEntries(user){
   });
 }
 
-// ══════════════════════════════════
-//  ENTRY CARD
-// ══════════════════════════════════
+/* ══════════════════════════════════════════
+   BUILD ENTRY CARD
+══════════════════════════════════════════ */
 function buildCard(data,isMine,idx){
   const card=document.createElement('div');
   card.className=`entry-card ${isMine?'mine':'theirs'} ${data.pinned?'pinned-card':''}`;
   card.style.animationDelay=idx*0.05+'s';
+
   const name=data.name||(data.email||'someone').split('@')[0];
-  const ci=simpleHash(data.email||'')%AVATAR_COLORS.length;
+  const ci=hash(data.email||'')%ACOLORS.length;
   const time=data.createdAt?fmt(data.createdAt.toDate()):'Just now';
   const tag=isMine?`<span class="mine-tag">You</span>`:`<span class="theirs-tag">💌 ${esc(name)}</span>`;
   const mood=data.mood?`<span class="mood-tag">${data.mood}</span>`:'';
-  const pin=data.pinned?`<span>📌</span>`:'';
+  const pin=data.pinned?'📌':'';
   const delBtn=isMine?`<button class="btn-delete" onclick="window.delEntry('${data.id}',this)">🗑️</button>`:'';
   const pinBtn=isMine?`<button class="btn-pin" onclick="window.togglePin('${data.id}',${!!data.pinned})">${data.pinned?'📌':'📍'}</button>`:'';
   const photo=data.photo?`<img class="entry-photo" src="${data.photo}" loading="lazy"/>`:'';
-  const reactions=buildReacts(data.reactions||{},data.id);
+  const reacts=buildReacts(data.reactions||{},data.id);
+
   card.innerHTML=`
     <div class="entry-meta">
       <div class="entry-author">
-        <div class="author-avatar" style="background:${AVATAR_COLORS[ci]}">${name[0].toUpperCase()}</div>
-        <span class="author-name">${esc(name)}</span>${tag}${mood}${pin}
+        <div class="author-avatar" style="background:${ACOLORS[ci]}">${name[0].toUpperCase()}</div>
+        <span class="author-name">${esc(name)}</span>${tag}${mood}
+        <span>${pin}</span>
       </div>
       <div class="entry-meta-right">
         <span class="entry-time">${time}</span>${pinBtn}${delBtn}
@@ -320,14 +381,14 @@ function buildCard(data,isMine,idx){
     </div>
     <div class="entry-body">${esc(data.text)}</div>
     ${photo}
-    <div class="reactions-row" id="rr-${data.id}">${reactions}</div>`;
+    <div class="reactions-row" id="rr-${data.id}" style="position:relative">${reacts}</div>`;
   return card;
 }
 
 function buildReacts(reactions,docId){
   let html='';
   const uid=currentUser?.uid||'';
-  REACT_EMOJIS.forEach(e=>{
+  REACTS.forEach(e=>{
     const users=reactions[ekey(e)]||[];
     if(users.length>0){
       const reacted=users.includes(uid);
@@ -338,98 +399,105 @@ function buildReacts(reactions,docId){
   return html;
 }
 
-window.toggleReact = async function(docId,emoji){
-  const uid=currentUser?.uid; if(!uid) return;
+window.toggleReact=async function(docId,emoji){
+  if(!currentUser) return;
   const key=ekey(emoji);
-  const ref=doc(db,'entries',docId);
-  const snap=await getDoc(ref);
-  if(!snap.exists()) return;
-  const users=(snap.data().reactions||{})[key]||[];
-  await updateDoc(ref,{[`reactions.${key}`]:users.includes(uid)?arrayRemove(uid):arrayUnion(uid)});
+  try{
+    const ref=doc(db,'entries',docId);
+    const snap=await getDoc(ref);
+    if(!snap.exists()) return;
+    const users=(snap.data().reactions||{})[key]||[];
+    await updateDoc(ref,{[`reactions.${key}`]:users.includes(currentUser.uid)?arrayRemove(currentUser.uid):arrayUnion(currentUser.uid)});
+  }catch(e){}
 };
 
-window.openPicker = function(docId,btn){
+window.openPicker=function(docId,btn){
   document.querySelectorAll('.emoji-picker-popup').forEach(p=>p.remove());
   const picker=document.createElement('div');
   picker.className='emoji-picker-popup';
-  REACT_EMOJIS.forEach(e=>{
+  REACTS.forEach(e=>{
     const s=document.createElement('span');
     s.className='emoji-opt'; s.textContent=e;
-    s.onclick=()=>{window.toggleReact(docId,e);picker.remove();};
+    s.onclick=()=>{window.toggleReact(docId,e);picker.remove()};
     picker.appendChild(s);
   });
-  btn.parentElement.style.position='relative';
   btn.parentElement.appendChild(picker);
   setTimeout(()=>document.addEventListener('click',()=>picker.remove(),{once:true}),50);
 };
 
-window.delEntry = async function(docId,btn){
+window.delEntry=async function(docId,btn){
   const card=btn.closest('.entry-card');
-  card.style.opacity='0.4';
-  if(!confirm('Delete this entry? 💔')){ card.style.opacity=''; return; }
+  if(card) card.style.opacity='0.4';
+  if(!confirm('Delete this entry? 💔')){ if(card) card.style.opacity=''; return; }
   try{ await deleteDoc(doc(db,'entries',docId)); showToast('Deleted 🗑️'); }
-  catch(e){ card.style.opacity=''; showToast('Could not delete'); }
+  catch(e){ if(card) card.style.opacity=''; showToast('Could not delete'); }
 };
 
-window.togglePin = async function(docId,pinned){
-  try{ await updateDoc(doc(db,'entries',docId),{pinned:!pinned}); showToast(pinned?'Unpinned':'Pinned 📌'); }
-  catch(e){ showToast('Could not pin'); }
+window.togglePin=async function(docId,pinned){
+  try{
+    await updateDoc(doc(db,'entries',docId),{pinned:!pinned});
+    showToast(pinned?'Unpinned':'Pinned 📌');
+  }catch(e){ showToast('Could not pin'); }
 };
 
-// ══════════════════════════════════
-//  MOOD / PHOTO
-// ══════════════════════════════════
-window.selectMood = function(btn){
+/* ══════════════════════════════════════════
+   MOOD & PHOTO
+══════════════════════════════════════════ */
+window.selectMood=function(btn){
   selectedMood=btn.dataset.mood;
   document.querySelectorAll('.mood-btn').forEach(b=>b.classList.remove('selected'));
   btn.classList.add('selected');
 };
-window.handlePhotoSelect = function(e){
+window.handlePhotoSelect=function(e){
   const file=e.target.files[0]; if(!file) return;
   if(file.size>2*1024*1024){ showToast('Max 2MB please 📸'); return; }
   const r=new FileReader();
   r.onload=ev=>{
     selectedPhoto=ev.target.result;
-    const p=el('photo-preview');
-    p.style.display='flex';
-    p.innerHTML=`<img src="${selectedPhoto}" style="width:60px;height:60px;object-fit:cover;border-radius:8px;"/>
-      <button onclick="window.clearPhoto()" style="background:none;border:none;cursor:pointer;font-size:1rem;color:#e8789a">✕</button>`;
+    const p=$('photo-preview');
+    if(p){
+      p.style.display='flex';
+      p.innerHTML=`<img src="${selectedPhoto}" style="width:56px;height:56px;object-fit:cover;border-radius:8px;"/>
+        <button onclick="window.clearPhoto()" style="background:none;border:none;cursor:pointer;font-size:1.1rem;color:var(--accent-dark);padding:0 0.3rem">✕</button>`;
+    }
   };
   r.readAsDataURL(file);
 };
-window.clearPhoto=function(){
+function clearPhotoState(){
   selectedPhoto=null;
-  el('photo-preview').style.display='none';
-  el('photo-preview').innerHTML='';
-  el('photo-input').value='';
-};
+  const p=$('photo-preview'); if(p){ p.style.display='none'; p.innerHTML=''; }
+  const pi=$('photo-input'); if(pi) pi.value='';
+}
+window.clearPhoto=clearPhotoState;
 
-// ══════════════════════════════════
-//  SEARCH / FILTER
-// ══════════════════════════════════
-window.filterEntries=function(){ searchQuery=el('search-input').value; renderEntries(); };
+/* ══════════════════════════════════════════
+   SEARCH / FILTER
+══════════════════════════════════════════ */
+window.filterEntries=function(){
+  const si=$('search-input'); searchQuery=si?si.value:''; renderEntries();
+};
 window.setFilter=function(f,btn){
   activeFilter=f;
   document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
-  btn.classList.add('active');
+  if(btn) btn.classList.add('active');
   renderEntries();
 };
 
-// ══════════════════════════════════
-//  CALENDAR
-// ══════════════════════════════════
+/* ══════════════════════════════════════════
+   CALENDAR
+══════════════════════════════════════════ */
 window.toggleCalendar=function(){
-  const p=el('calendar-panel');
-  p.style.display=p.style.display==='none'?'block':'none';
+  const p=$('calendar-panel'); if(!p) return;
+  p.style.display=p.style.display==='none'||!p.style.display?'block':'none';
   renderCal();
 };
 window.calPrev=function(){ calDate.setMonth(calDate.getMonth()-1); renderCal(); };
 window.calNext=function(){ calDate.setMonth(calDate.getMonth()+1); renderCal(); };
 function renderCal(){
-  const p=el('calendar-panel');
-  if(!p||p.style.display==='none') return;
+  const p=$('calendar-panel'); if(!p||p.style.display==='none') return;
   const yr=calDate.getFullYear(),mo=calDate.getMonth();
-  el('cal-month-label').textContent=new Date(yr,mo,1).toLocaleDateString('en-US',{month:'long',year:'numeric'});
+  const ml=$('cal-month-label');
+  if(ml) ml.textContent=new Date(yr,mo,1).toLocaleDateString('en-US',{month:'long',year:'numeric'});
   const days=['Su','Mo','Tu','We','Th','Fr','Sa'];
   let html=days.map(d=>`<div class="cal-day-name">${d}</div>`).join('');
   const first=new Date(yr,mo,1).getDay();
@@ -442,22 +510,22 @@ function renderCal(){
     const isT=d===today.getDate()&&mo===today.getMonth()&&yr===today.getFullYear();
     html+=`<div class="cal-day ${has?'has-entry':''} ${isT?'today':''}" onclick="window.calDay(${yr},${mo},${d})">${d}</div>`;
   }
-  el('calendar-grid').innerHTML=html;
+  const cg=$('calendar-grid'); if(cg) cg.innerHTML=html;
 }
 window.calDay=function(yr,mo,d){
-  const start=new Date(yr,mo,d), end=new Date(yr,mo,d+1);
+  const start=new Date(yr,mo,d),end=new Date(yr,mo,d+1);
   const list=allEntries.filter(e=>e.createdAt&&e.createdAt.toDate()>=start&&e.createdAt.toDate()<end);
-  const container=el('entries-container');
+  const container=$('entries-container'); if(!container) return;
   container.innerHTML='';
-  if(!list.length){ container.innerHTML=`<div class="empty-state"><span class="empty-icon">📅</span><p>No entries this day</p></div>`; }
-  else list.forEach((d2,i)=>container.appendChild(buildCard(d2,d2.email?.toLowerCase()===currentUser.email.toLowerCase(),i)));
-  el('calendar-panel').style.display='none';
-  showToast('Showing '+new Date(yr,mo,d).toLocaleDateString('en-US',{month:'short',day:'numeric'}));
+  if(!list.length){ container.innerHTML=`<div class="empty-state"><span class="empty-icon">📅</span><p>No entries on this day</p></div>`; }
+  else list.forEach((d2,i)=>container.appendChild(buildCard(d2,d2.email?.toLowerCase()===currentUser?.email?.toLowerCase(),i)));
+  const cp=$('calendar-panel'); if(cp) cp.style.display='none';
+  showToast('Showing '+new Date(yr,mo,d).toLocaleDateString('en-US',{month:'short',day:'numeric'}))+' 📅';
 };
 
-// ══════════════════════════════════
-//  LOVE METER
-// ══════════════════════════════════
+/* ══════════════════════════════════════════
+   LOVE METER (streak)
+══════════════════════════════════════════ */
 async function updateStreak(){
   if(!currentUser) return;
   try{
@@ -468,72 +536,4 @@ async function updateStreak(){
     else{
       const{lastDate,streak}=snap.data();
       if(lastDate===today) return;
-      const yesterday=new Date(Date.now()-86400000).toDateString();
-      await setDoc(ref,{lastDate:today,streak:lastDate===yesterday?(streak||0)+1:1});
-    }
-    loadStreak();
-  }catch(e){}
-}
-async function loadStreak(){
-  if(!currentUser) return;
-  try{
-    const snap=await getDoc(doc(db,'streaks',currentUser.uid));
-    el('streak-count').textContent=snap.exists()?(snap.data().streak||0):0;
-  }catch(e){}
-}
-
-// ══════════════════════════════════
-//  PING
-// ══════════════════════════════════
-window.sendPing=async function(){
-  try{
-    await addDoc(collection(db,'pings'),{
-      from:currentUser.uid, fromName:window._myName||'Someone',
-      fromEmail:currentUser.email, createdAt:serverTimestamp()
-    });
-    showToast('💗 Ping sent!');
-  }catch(e){ showToast('Could not send ping'); }
-};
-function listenPings(user){
-  // Firestore limitation: != query needs composite index
-  // Simpler: listen to all pings, filter client-side
-  const q=query(collection(db,'pings'),orderBy('createdAt','desc'));
-  unsubPings=onSnapshot(q,snap=>{
-    snap.docChanges().forEach(change=>{
-      if(change.type==='added'){
-        const data=change.doc.data();
-        if(data.from===user.uid) return; // my own ping
-        if(data.createdAt){
-          const age=Date.now()-data.createdAt.toDate().getTime();
-          if(age<30000) showPing(data.fromName||'Your love');
-        }
-      }
-    });
-  },()=>{});
-}
-function showPing(name){
-  el('ping-text').textContent=name+' is thinking of you 💗';
-  el('ping-overlay').style.display='flex';
-  setTimeout(()=>el('ping-overlay').style.display='none',3500);
-}
-
-// ══════════════════════════════════
-//  NOTIFICATIONS
-// ══════════════════════════════════
-window.requestNotifications=async function(){
-  if(!('Notification' in window)){ showToast('Not supported on this browser'); return; }
-  const p=await Notification.requestPermission();
-  if(p==='granted'){
-    el('notify-btn').textContent='✅ Enabled';
-    localStorage.setItem('sd_notify','1');
-    showToast('Notifications on 🔔');
-  } else { showToast('Permission denied'); }
-};
-function notifyNew(name){
-  if(typeof Notification!=='undefined'&&Notification.permission==='granted'&&localStorage.getItem('sd_notify')==='1'){
-    try{ new Notification('Our Secret Diary 💖',{body:name+' wrote a new entry ✨'}); }catch(e){}
-  }
-}
-
-// ══════════════════════════════════
-//  DARK MODE / THEME 
+      const yesterday=new D
