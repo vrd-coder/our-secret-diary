@@ -4,10 +4,9 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   onAuthStateChanged,
-  signOut,
-  setPersistence,
-  browserLocalPersistence
+  signOut
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
 import {
   getFirestore,
   collection,
@@ -15,10 +14,11 @@ import {
   query,
   orderBy,
   onSnapshot,
-  serverTimestamp
+  serverTimestamp,
+  deleteDoc,
+  doc
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-// 🔥 FIREBASE CONFIG
 const firebaseConfig = {
   apiKey: "AIzaSyDxOUi53zfnq1YbfZxQbHKURfizZpsbc5A",
   authDomain: "our-secret-diary.firebaseapp.com",
@@ -28,19 +28,19 @@ const firebaseConfig = {
   appId: "1:834741276150:web:05063d4b78fefb9d7f4bd7"
 };
 
-// INIT
-const app  = initializeApp(firebaseConfig);
+const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
-const db   = getFirestore(app);
+const db = getFirestore(app);
 
-setPersistence(auth, browserLocalPersistence);
+let unsubscribe = null;
 
-// 🌸 PETALS
+/* 🌸 PETALS */
 function spawnPetals() {
   const container = document.getElementById("petals");
   if (!container) return;
 
-  const symbols = ["🌸","🌺","💮","💗","🩷"];
+  const symbols = ["🌸","💗","🩷"];
+
   for (let i = 0; i < 15; i++) {
     const el = document.createElement("span");
     el.className = "petal";
@@ -53,105 +53,87 @@ function spawnPetals() {
 }
 spawnPetals();
 
-// AUTH STATE
-let unsubscribeEntries = null;
+/* AUTH STATE */
+onAuthStateChanged(auth, user => {
+  if(user){
+    show("diary-screen");
 
-onAuthStateChanged(auth, (user) => {
-  if (user) {
-    showScreen("diary-screen");
-    initDiary(user);
-  } else {
-    if (unsubscribeEntries) {
-      unsubscribeEntries();
-      unsubscribeEntries = null;
+    const name = localStorage.getItem("name");
+    document.getElementById("user-badge").innerText = name || user.email;
+
+    loadEntries();
+  }else{
+    if(unsubscribe){
+      unsubscribe();
+      unsubscribe = null;
     }
-    showScreen("auth-screen");
+    show("auth-screen");
   }
 });
 
-// LOGIN / SIGNUP
-window.handleAuth = async function () {
-  const email = document.getElementById("auth-email").value.trim().toLowerCase();
-  const password = document.getElementById("auth-password").value;
+/* LOGIN */
+window.handleAuth = async function(){
+  const name = document.getElementById("auth-name").value;
+  const email = document.getElementById("auth-email").value;
+  const pass = document.getElementById("auth-password").value;
 
-  if (!email || !password) {
-    alert("Enter email & password");
-    return;
-  }
+  const finalName = name || "You 💖";
+  localStorage.setItem("name", finalName);
 
-  try {
-    await signInWithEmailAndPassword(auth, email, password);
-  } catch {
-    await createUserWithEmailAndPassword(auth, email, password);
+  try{
+    await signInWithEmailAndPassword(auth,email,pass);
+  }catch{
+    await createUserWithEmailAndPassword(auth,email,pass);
   }
 };
 
-// LOGOUT
-window.handleLogout = async function () {
-  if (unsubscribeEntries) {
-    unsubscribeEntries();
-    unsubscribeEntries = null;
+/* LOGOUT */
+window.handleLogout = async function(){
+  if(unsubscribe){
+    unsubscribe();
+    unsubscribe = null;
   }
   await signOut(auth);
 };
 
-// INIT DIARY
-function initDiary(user) {
-  document.getElementById("user-badge").textContent = user.email;
+/* SAVE */
+window.saveEntry = async function(){
+  const text = document.getElementById("entry-text").value.trim();
+  if(!text) return;
 
-  const textarea = document.getElementById("entry-text");
-
-  textarea.addEventListener("input", () => {
-    document.getElementById("char-count").textContent =
-      textarea.value.length + " / 2000";
-  });
-
-  listenEntries();
-}
-
-// SAVE ENTRY
-window.saveEntry = async function () {
-  const user = auth.currentUser;
-  const textarea = document.getElementById("entry-text");
-  const text = textarea.value.trim();
-
-  if (!text) return;
-
-  await addDoc(collection(db, "entries"), {
+  await addDoc(collection(db,"entries"),{
     text,
-    email: user.email,
+    name: localStorage.getItem("name"),
+    email: auth.currentUser.email,
     createdAt: serverTimestamp()
   });
 
-  textarea.value = "";
-  document.getElementById("char-count").textContent = "0 / 2000";
+  document.getElementById("entry-text").value = "";
 };
 
-// REALTIME LISTENER
-function listenEntries() {
+/* LOAD */
+function loadEntries(){
   const container = document.getElementById("entries-container");
 
-  const q = query(
-    collection(db, "entries"),
-    orderBy("createdAt","desc")
-  );
+  const q = query(collection(db,"entries"), orderBy("createdAt","desc"));
 
-  unsubscribeEntries = onSnapshot(q, (snapshot) => {
+  unsubscribe = onSnapshot(q, snapshot => {
+    container.innerHTML = "";
 
-    container.innerHTML = snapshot.empty
-      ? "<p style='text-align:center;color:#999;'>No entries yet 💔</p>"
-      : "";
+    snapshot.forEach(docSnap => {
+      const data = docSnap.data();
+      const id = docSnap.id;
 
-    snapshot.forEach(doc => {
-      const data = doc.data();
+      const isMine = data.email === auth.currentUser.email;
 
       const div = document.createElement("div");
       div.className = "entry-card";
 
       div.innerHTML = `
-        <b>${data.email}</b><br>
+        <b>${data.name || data.email}</b><br>
         <small>${data.createdAt?.toDate()?.toLocaleString() || ""}</small>
         <p>${data.text}</p>
+        ${isMine ? `<button class="delete-btn" onclick="deleteEntry('${id}')">Delete</button>` : ""}
       `;
 
       container.appendChild(div);
@@ -159,8 +141,13 @@ function listenEntries() {
   });
 }
 
-// UI SWITCH
-function showScreen(id) {
+/* DELETE */
+window.deleteEntry = async function(id){
+  await deleteDoc(doc(db,"entries",id));
+};
+
+/* UI */
+function show(id){
   document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
   document.getElementById(id).classList.add("active");
-    }
+}
