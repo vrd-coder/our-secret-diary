@@ -25,6 +25,8 @@ import {
   addDoc,
   deleteDoc,
   doc,
+  setDoc,
+  getDoc,
   query,
   orderBy,
   onSnapshot,
@@ -122,6 +124,7 @@ onAuthStateChanged(auth, (user) => {
 // ═══════════════════════════════════════════════
 window.handleAuth = async function () {
   const email    = document.getElementById("auth-email").value.trim().toLowerCase();
+  const name     = document.getElementById("auth-name").value.trim();
   const password = document.getElementById("auth-password").value;
   const errEl    = document.getElementById("auth-error");
   const infoEl   = document.getElementById("auth-info");
@@ -141,15 +144,18 @@ window.handleAuth = async function () {
 
   try {
     // Try login first
-    await signInWithEmailAndPassword(auth, email, password);
+    const cred = await signInWithEmailAndPassword(auth, email, password);
+    // If name provided, update it in Firestore
+    if (name) await saveUserName(cred.user.uid, email, name);
     // onAuthStateChanged will handle navigation
   } catch (loginErr) {
     if (loginErr.code === "auth/user-not-found" || loginErr.code === "auth/invalid-credential") {
       // Auto-create account
       try {
         showEl(infoEl, "Creating your account… ✨");
-        await createUserWithEmailAndPassword(auth, email, password);
-        // onAuthStateChanged handles navigation
+        const cred = await createUserWithEmailAndPassword(auth, email, password);
+        // Save name on first signup
+        await saveUserName(cred.user.uid, email, name || email.split("@")[0]);
       } catch (signupErr) {
         showEl(errEl, friendlyError(signupErr.code));
         setAuthLoading(false);
@@ -160,6 +166,20 @@ window.handleAuth = async function () {
     }
   }
 };
+
+// Save display name to Firestore users collection
+async function saveUserName(uid, email, name) {
+  await setDoc(doc(db, "users", uid), { name, email }, { merge: true });
+}
+
+// Fetch display name from Firestore (returns name or falls back to email prefix)
+async function getUserName(uid, email) {
+  try {
+    const snap = await getDoc(doc(db, "users", uid));
+    if (snap.exists() && snap.data().name) return snap.data().name;
+  } catch (e) {}
+  return email.split("@")[0];
+}
 
 // Allow pressing Enter to submit
 document.getElementById("auth-password").addEventListener("keydown", (e) => {
@@ -182,9 +202,13 @@ window.handleLogout = async function () {
 // ═══════════════════════════════════════════════
 //  📔 INIT DIARY — after successful auth
 // ═══════════════════════════════════════════════
-function initDiary(user) {
-  // Display logged-in user
-  document.getElementById("user-badge").textContent = `💌 ${user.email}`;
+async function initDiary(user) {
+  // Fetch name from Firestore and show in top bar
+  const name = await getUserName(user.uid, user.email);
+  document.getElementById("user-badge").textContent = `💌 ${name}`;
+
+  // Store name on window so saveEntry can use it
+  window._myName = name;
 
   // Show today's date in the write card
   document.getElementById("write-date").textContent = formatDateFull(new Date());
@@ -221,6 +245,7 @@ window.saveEntry = async function () {
       text,
       email:     user.email,
       uid:       user.uid,
+      name:      window._myName || user.email.split("@")[0],
       createdAt: serverTimestamp()
     });
 
@@ -297,19 +322,21 @@ function buildEntryCard(data, isMine, idx, docId) {
   card.className = `entry-card ${isMine ? "mine" : "theirs"}`;
   card.style.animationDelay = `${idx * 0.06}s`;
 
-  // Determine avatar color based on email hash
+  // Use saved name if available, fall back to email prefix
+  const displayName = data.name || (data.email || "someone").split("@")[0];
+  const initials    = displayName[0].toUpperCase();
+
+  // Determine avatar color based on uid/email hash
   const colorIdx    = simpleHash(data.email || "") % AVATAR_COLORS.length;
   const avatarColor = AVATAR_COLORS[colorIdx];
-  const initials    = (data.email || "?")[0].toUpperCase();
 
   const timeStr = data.createdAt
     ? formatDate(data.createdAt.toDate())
     : "Just now";
 
-  const shortEmail = (data.email || "someone").split("@")[0];
-  const tagEl      = isMine
+  const tagEl = isMine
     ? `<span class="mine-tag">You</span>`
-    : `<span class="theirs-tag">💌 ${shortEmail}</span>`;
+    : `<span class="theirs-tag">💌 ${displayName}</span>`;
 
   // Only show delete button on your own entries
   const deleteBtn = isMine
@@ -320,7 +347,7 @@ function buildEntryCard(data, isMine, idx, docId) {
     <div class="entry-meta">
       <div class="entry-author">
         <div class="author-avatar" style="background:${avatarColor}">${initials}</div>
-        <span class="author-name">${shortEmail}</span>
+        <span class="author-name">${escapeHtml(displayName)}</span>
         ${tagEl}
       </div>
       <div class="entry-meta-right">
@@ -455,5 +482,5 @@ function friendlyError(code) {
     "auth/network-request-failed": "No internet connection 🌐",
   };
   return map[code] || "Something went wrong. Please try again.";
-      }
-      
+}
+  
