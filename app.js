@@ -116,23 +116,35 @@ window.handleAuth = async function(){
   if(pass.length<6){ showEl(errEl,'Password needs at least 6 characters'); return; }
   setAuthLoading(true);
 
+  // Step 1: Try login
   try {
     const cred = await signInWithEmailAndPassword(auth, email, pass);
     if(name) await saveUserProfile(cred.user.uid, email, name);
-  } catch(e){
-    if(e.code==='auth/user-not-found'||e.code==='auth/invalid-credential'){
-      try {
-        showEl(infEl,'Creating your account ✨');
-        const cred = await createUserWithEmailAndPassword(auth, email, pass);
-        await saveUserProfile(cred.user.uid, email, name||email.split('@')[0]);
-      } catch(e2){
-        showEl(errEl, friendlyErr(e2.code));
-        setAuthLoading(false);
-      }
-    } else {
-      showEl(errEl, friendlyErr(e.code));
+    return; // success
+  } catch(loginErr){
+    // Wrong password — don't try signup
+    if(loginErr.code === 'auth/wrong-password'){
+      showEl(errEl, 'Wrong password 🔐');
       setAuthLoading(false);
+      return;
     }
+  }
+
+  // Step 2: Login failed — try creating account
+  try {
+    showEl(infEl, 'Creating your account ✨');
+    const cred = await createUserWithEmailAndPassword(auth, email, pass);
+    await saveUserProfile(cred.user.uid, email, name||email.split('@')[0]);
+    // onAuthStateChanged handles navigation
+  } catch(signupErr){
+    hideEl(infEl);
+    // If email already exists, the password was just wrong
+    if(signupErr.code === 'auth/email-already-in-use'){
+      showEl(errEl, 'Wrong password 🔐');
+    } else {
+      showEl(errEl, friendlyErr(signupErr.code));
+    }
+    setAuthLoading(false);
   }
 };
 
@@ -533,16 +545,3 @@ async function updateStreak(uid){
     const newStreak = lastDate===yesterday ? (streak||0)+1 : 1;
     await setDoc(ref,{ lastDate:today, streak:newStreak });
   }
-  loadLoveMeter();
-}
-
-async function loadLoveMeter(){
-  if(!currentUser) return;
-  try {
-    const snap = await getDoc(doc(db,'streaks',currentUser.uid));
-    const streak = snap.exists() ? (snap.data().streak||0) : 0;
-    document.getElementById('streak-count').textContent = streak;
-  } catch(e){}
-}
-
-// ═════════════════════════════════════
