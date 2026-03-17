@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="style.css"/>
 </head>
 <body>
+
   <div class="petals" id="petals"></div>
 
   <!-- AUTH SCREEN -->
@@ -21,31 +22,34 @@
           <p class="auth-subtitle">A private place, just for two</p>
         </div>
         <div class="auth-divider"></div>
-        <div id="auth-error" class="auth-error hidden"></div>
-        <div id="auth-info"  class="auth-info  hidden"></div>
+        <div id="auth-error" class="auth-error" style="display:none"></div>
+        <div id="auth-info"  class="auth-info"  style="display:none"></div>
         <div class="input-group">
           <label>Your Name</label>
-          <div class="input-wrap"><span class="input-icon">👤</span>
+          <div class="input-wrap">
+            <span class="input-icon">👤</span>
             <input type="text" id="auth-name" placeholder="e.g. Arjun" autocomplete="name"/>
           </div>
         </div>
         <div class="input-group">
           <label>Email</label>
-          <div class="input-wrap"><span class="input-icon">✉️</span>
+          <div class="input-wrap">
+            <span class="input-icon">✉️</span>
             <input type="email" id="auth-email" placeholder="your@email.com" autocomplete="email"/>
           </div>
         </div>
         <div class="input-group">
           <label>Password</label>
-          <div class="input-wrap"><span class="input-icon">🔒</span>
+          <div class="input-wrap">
+            <span class="input-icon">🔒</span>
             <input type="password" id="auth-password" placeholder="Enter password" autocomplete="current-password"/>
           </div>
         </div>
-        <button class="btn-primary" id="auth-btn" onclick="handleAuth()">
+        <button class="btn-primary" id="auth-btn" onclick="window.handleAuth()">
           <span id="auth-btn-text">Enter Our Diary 💖</span>
-          <div id="auth-spinner" class="spinner hidden"></div>
+          <div id="auth-spinner" class="spinner" style="display:none"></div>
         </button>
-        <p class="auth-note">New here? Your account is created automatically ✨</p>
+        <p class="auth-note">New here? Account is created automatically ✨</p>
       </div>
     </div>
   </div>
@@ -59,38 +63,38 @@
       </div>
       <div class="top-bar-right">
         <span class="user-badge" id="user-badge">...</span>
-        <div class="love-meter" id="love-meter" title="Days both wrote">🔥 <span id="streak-count">0</span></div>
-        <button class="btn-ping" onclick="sendPing()" title="Send thinking of you ping">💗 Ping</button>
-        <button class="btn-icon" onclick="toggleSettings()" title="Settings">⚙️</button>
-        <button class="btn-icon" id="dark-toggle" onclick="toggleDark()" title="Toggle dark mode">🌙</button>
-        <button class="btn-logout" onclick="handleLogout()">Logout</button>
+        <div class="love-meter">🔥 <span id="streak-count">0</span></div>
+        <button class="btn-ping" onclick="window.sendPing()">💗 Ping</button>
+        <button class="btn-icon" onclick="window.toggleSettings()">⚙️</button>
+        <button class="btn-icon" id="dark-toggle" onclick="window.toggleDark()">🌙</button>
+        <button class="btn-logout" onclick="window.handleLogout()">Logout</button>
       </div>
     </header>
 
-    <!-- Settings panel -->
-    <div class="settings-panel hidden" id="settings-panel">
+    <!-- Settings -->
+    <div class="settings-panel" id="settings-panel" style="display:none">
       <div class="settings-inner">
         <div class="settings-group">
-          <label class="settings-label">Theme Color</label>
+          <label class="settings-label">Theme</label>
           <div class="theme-swatches">
-            <button class="swatch active" data-theme="pink"   style="background:#e8789a" onclick="setTheme('pink')"></button>
-            <button class="swatch"        data-theme="purple" style="background:#9b72cf" onclick="setTheme('purple')"></button>
-            <button class="swatch"        data-theme="blue"   style="background:#5ba8d9" onclick="setTheme('blue')"></button>
-            <button class="swatch"        data-theme="green"  style="background:#5cb87a" onclick="setTheme('green')"></button>
-            <button class="swatch"        data-theme="peach"  style="background:#e8936a" onclick="setTheme('peach')"></button>
+            <button class="swatch active" data-theme="pink"   style="background:#e8789a" onclick="window.setTheme('pink')"></button>
+            <button class="swatch"        data-theme="purple" style="background:#9b72cf" onclick="window.setTheme('purple')"></button>
+            <button class="swatch"        data-theme="blue"   style="background:#5ba8d9" onclick="window.setTheme('blue')"></button>
+            <button class="swatch"        data-theme="green"  style="background:#5cb87a" onclick="window.setTheme('green')"></button>
+            <button class="swatch"        data-theme="peach"  style="background:#e8936a" onclick="window.setTheme('peach')"></button>
           </div>
         </div>
         <div class="settings-group">
           <label class="settings-label">Font Size</label>
           <div class="font-controls">
-            <button class="btn-font" onclick="changeFontSize(-1)">A−</button>
+            <button class="btn-font" onclick="window.changeFontSize(-1)">A−</button>
             <span id="font-size-label">Medium</span>
-            <button class="btn-font" onclick="changeFontSize(1)">A+</button>
+            <button class="btn-font" onclick="window.changeFontSize(1)">A+</button>
           </div>
         </div>
         <div class="settings-group">
           <label class="settings-label">Notifications</label>
-          <button class="btn-notify" id="notify-btn" onclick="requestNotifications()">🔔 Enable Notifications</button>
+          <button class="btn-notify" id="notify-btn" onclick="window.requestNotifications()">🔔 Enable</button>
         </div>
       </div>
     </div>
@@ -99,29 +103,28 @@
     <div class="toolbar">
       <div class="search-wrap">
         <span class="search-icon">🔍</span>
-        <input type="text" id="search-input" class="search-input" placeholder="Search entries…" oninput="filterEntries()"/>
+        <input type="text" id="search-input" class="search-input" placeholder="Search…" oninput="window.filterEntries()"/>
       </div>
       <div class="filter-wrap">
-        <button class="filter-btn active" data-filter="all"    onclick="setFilter('all',this)">All</button>
-        <button class="filter-btn"        data-filter="mine"   onclick="setFilter('mine',this)">Mine</button>
-        <button class="filter-btn"        data-filter="theirs" onclick="setFilter('theirs',this)">Theirs</button>
-        <button class="filter-btn"        data-filter="pinned" onclick="setFilter('pinned',this)">📌 Pinned</button>
+        <button class="filter-btn active" onclick="window.setFilter('all',this)">All</button>
+        <button class="filter-btn"        onclick="window.setFilter('mine',this)">Mine</button>
+        <button class="filter-btn"        onclick="window.setFilter('theirs',this)">Theirs</button>
+        <button class="filter-btn"        onclick="window.setFilter('pinned',this)">📌</button>
       </div>
-      <button class="btn-icon cal-btn" onclick="toggleCalendar()" title="Calendar view">📅</button>
+      <button class="btn-icon" onclick="window.toggleCalendar()">📅</button>
     </div>
 
     <!-- Calendar -->
-    <div class="calendar-panel hidden" id="calendar-panel">
+    <div class="calendar-panel" id="calendar-panel" style="display:none">
       <div class="calendar-header">
-        <button class="cal-nav" onclick="calPrev()">‹</button>
+        <button class="cal-nav" onclick="window.calPrev()">‹</button>
         <span class="cal-month-label" id="cal-month-label"></span>
-        <button class="cal-nav" onclick="calNext()">›</button>
+        <button class="cal-nav" onclick="window.calNext()">›</button>
       </div>
       <div class="calendar-grid" id="calendar-grid"></div>
     </div>
 
     <main class="diary-main">
-      <!-- Write panel -->
       <section class="write-panel">
         <div class="write-card">
           <div class="write-card-header">
@@ -130,36 +133,33 @@
           </div>
           <div class="mood-bar">
             <span class="mood-label">Mood:</span>
-            <div class="mood-options">
-              <button class="mood-btn" data-mood="🥰" onclick="selectMood(this)">🥰</button>
-              <button class="mood-btn" data-mood="😊" onclick="selectMood(this)">😊</button>
-              <button class="mood-btn" data-mood="😢" onclick="selectMood(this)">😢</button>
-              <button class="mood-btn" data-mood="😡" onclick="selectMood(this)">😡</button>
-              <button class="mood-btn" data-mood="😴" onclick="selectMood(this)">😴</button>
-              <button class="mood-btn" data-mood="🎉" onclick="selectMood(this)">🎉</button>
-              <button class="mood-btn" data-mood="💪" onclick="selectMood(this)">💪</button>
-              <button class="mood-btn" data-mood="🌸" onclick="selectMood(this)">🌸</button>
-            </div>
+            <button class="mood-btn" data-mood="🥰" onclick="window.selectMood(this)">🥰</button>
+            <button class="mood-btn" data-mood="😊" onclick="window.selectMood(this)">😊</button>
+            <button class="mood-btn" data-mood="😢" onclick="window.selectMood(this)">😢</button>
+            <button class="mood-btn" data-mood="😡" onclick="window.selectMood(this)">😡</button>
+            <button class="mood-btn" data-mood="😴" onclick="window.selectMood(this)">😴</button>
+            <button class="mood-btn" data-mood="🎉" onclick="window.selectMood(this)">🎉</button>
+            <button class="mood-btn" data-mood="💪" onclick="window.selectMood(this)">💪</button>
+            <button class="mood-btn" data-mood="🌸" onclick="window.selectMood(this)">🌸</button>
           </div>
           <textarea id="entry-text" class="diary-textarea"
             placeholder="Dear diary… what's on your heart today? 🌸"
             maxlength="2000"></textarea>
           <div class="photo-bar">
             <label class="btn-photo" for="photo-input">📸 Add Photo</label>
-            <input type="file" id="photo-input" accept="image/*" style="display:none" onchange="handlePhotoSelect(event)"/>
-            <div id="photo-preview" class="photo-preview hidden"></div>
+            <input type="file" id="photo-input" accept="image/*" style="display:none" onchange="window.handlePhotoSelect(event)"/>
+            <div id="photo-preview" class="photo-preview" style="display:none"></div>
           </div>
           <div class="write-footer">
             <span class="char-count" id="char-count">0 / 2000</span>
-            <button class="btn-save" id="save-btn" onclick="saveEntry()">
+            <button class="btn-save" id="save-btn" onclick="window.saveEntry()">
               <span id="save-btn-text">Save Entry 💕</span>
-              <div id="save-spinner" class="spinner hidden"></div>
+              <div id="save-spinner" class="spinner" style="display:none"></div>
             </button>
           </div>
         </div>
       </section>
 
-      <!-- Feed -->
       <section class="feed-panel">
         <div class="feed-header">
           <h2 class="feed-title">Our Stories</h2>
@@ -186,17 +186,17 @@
       <div class="blocked-icon">🔒</div>
       <h2>Private Diary</h2>
       <p>This diary is only for two special people.</p>
-      <button class="btn-primary" onclick="handleLogout()">Sign Out</button>
+      <button class="btn-primary" onclick="window.handleLogout()">Sign Out</button>
     </div>
   </div>
 
-  <div id="toast" class="toast hidden"></div>
-  <div id="ping-overlay" class="ping-overlay hidden">
+  <div id="toast" class="toast" style="display:none"></div>
+  <div id="ping-overlay" class="ping-overlay" style="display:none" onclick="document.getElementById('ping-overlay').style.display='none'">
     <div class="ping-bubble">💗</div>
     <p class="ping-text" id="ping-text"></p>
   </div>
 
   <script type="module" src="app.js"></script>
 </body>
-              </html>
-      
+  </html>
+  
